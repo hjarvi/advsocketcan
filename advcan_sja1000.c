@@ -467,7 +467,7 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
           u32 fifo_cnt = ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);
           u32 status = priv->read_reg(priv, REG_SR);
           if (fifo_cnt == 0 || status&SR_TBS==1) {
-            DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d,fifo:%d,status:%d begin\n",priv->serialNo, fifo_cnt, status);
+            DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d,fifo:%d,status:%d end\n",priv->serialNo, fifo_cnt, status);
           }
         }
 
@@ -888,12 +888,12 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 	int n = 0;
 	u32 uTxFifoSpace = 0;
 
+        if (priv->pre_irq) {
+		priv->pre_irq(priv);
+	}
 	/* Shared interrupts and IRQ off? */
 	if (priv->read_reg(priv, REG_IER) == IRQ_OFF) {
 		return IRQ_NONE;
-	}
-	if (priv->pre_irq) {
-		priv->pre_irq(priv);
 	}
 	while ((isrc = priv->read_reg(priv, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
 		status = priv->read_reg(priv, REG_SR);
