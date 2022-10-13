@@ -245,9 +245,13 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
 		if (fpga_ver >= 0x00010000)//version >=  v0.1.0.0,support dma
 		{
 			dma_spted = 1;
+			DEBUG_INFO("advsocketcan: DMA supported. Enabling...\n");
+			dma_spted = 1;
 		}
 		if (fpga_ver >= 0x00020000)
 		{
+			txFIFOSpted = 1;
+			DEBUG_INFO("advsocketcan: txFIFO supported. Enabling...\n");
 			txFIFOSpted = 1;
 		}
 

@@ -50,7 +50,7 @@
 #include <linux/can/platform/sja1000.h>
 #include <linux/version.h>
 
-#if 0
+#if 1
 #define DEBUG_INFO(fmt...)	printk(fmt)
 #else
 #define DEBUG_INFO(fmt...)	do { } while (0)

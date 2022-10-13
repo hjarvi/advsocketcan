@@ -416,6 +416,21 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 
     netif_stop_queue(dev);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+	(void)can_put_echo_skb(skb, dev, 0,0);
+#else
+	(void)can_put_echo_skb(skb, dev, 0);
+#endif
+
+        {
+          u32 fifo_cnt = ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);
+          u32 status = priv->read_reg(priv, REG_SR);
+          if (fifo_cnt != 0 || status&SR_TBS==0) {
+            DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d,fifo:%d,status:%d begin\n",priv->serialNo, fifo_cnt, status);
+          }
+        }
+        
+    
 	fi = dlc = cf->can_dlc;
 	id = cf->can_id;
 	if (id & CAN_RTR_FLAG)
@@ -440,15 +455,30 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00000007) << 5);
 
 	}
+        DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d\n",priv->serialNo);
 	//write data to FIFO
 	for (i = 0; i < dlc; i++)
 	{
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, cf->data[i]);
 	}
 
-	stats->tx_bytes += 8;
-	stats->tx_packets++;
 
+        {
+          u32 fifo_cnt = ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);
+          u32 status = priv->read_reg(priv, REG_SR);
+          if (fifo_cnt == 0 || status&SR_TBS==1) {
+            DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d,fifo:%d,status:%d begin\n",priv->serialNo, fifo_cnt, status);
+          }
+        }
+
+
+        
+	//stats->tx_bytes += dlc;
+	//stats->tx_packets++;
+
+
+        
+        /*
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 	(void)can_put_echo_skb(skb, dev, 0,0);
 	(void)can_get_echo_skb(dev, 0,NULL);
@@ -456,12 +486,16 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 	(void)can_put_echo_skb(skb, dev, 0);
 	(void)can_get_echo_skb(dev, 0);
 #endif
+        */
 
 	// check whether rest space of FIFO can still hold a packet (CAN max packet size is 13) 
 	uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454 
-	if (uTxFifoSpace >= 26) { 
-		netif_wake_queue(dev);
-	} 
+	//if (uTxFifoSpace >= 26) { 
+	//	netif_wake_queue(dev);
+	//}
+        if (uTxFifoSpace >= CAN_TX_FIFO_SIZE) {
+          DEBUG_INFO("=adv_sja1000 transmit_send_msg_tx_fifo,serialNo:%d fifo:%d", priv->serialNo, CAN_TX_FIFO_SIZE-uTxFifoSpace);
+        }
 
 	return NETDEV_TX_OK;
 }
@@ -477,6 +511,12 @@ netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 	int i = 0;
 
 	netif_stop_queue(dev);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+	(void)can_put_echo_skb(skb, dev, 0,0);
+#else
+	(void)can_put_echo_skb(skb, dev, 0);
+#endif
 
 	fi = dlc = cf->can_dlc;
 	id = cf->can_id;
@@ -507,11 +547,6 @@ netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 	{
 		priv->write_reg(priv, dreg++, cf->data[i]);
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-	(void)can_put_echo_skb(skb, dev, 0,0);
-#else
-	(void)can_put_echo_skb(skb, dev, 0);
-#endif
 
 	if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT)
 	{
@@ -584,6 +619,7 @@ static void sja1000_rx(struct net_device *dev)
 		rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT);//CAN_0_RXDMA_CNT 0x228;CAN_0_RXDMA_CNT 0x628,note that offset 0x400 is add to the second priv's Bass address in pci_init_one 
 
 		data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+                if (data_cnt == RX_DMA_BUF_SIZE) { data_cnt = 0; }
 
 		DEBUG_INFO("=========$$$$$$$$$ data_cnt:%d,rbuf_wp:%d,dmaBufAddr:0x%p\n",data_cnt,rbuf_wp,dma_buf);
 
@@ -600,6 +636,7 @@ static void sja1000_rx(struct net_device *dev)
 			skb = alloc_can_skb(dev, &cf);
 			if (skb == NULL)
 			{
+                          DEBUG_INFO("alloc_can_skb FAIL\n");
 				continue;
 			}
 			dst = cf->data;
@@ -621,6 +658,7 @@ static void sja1000_rx(struct net_device *dev)
 				{
 					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
 					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+                                        if (data_cnt == RX_DMA_BUF_SIZE) { data_cnt = 0; }
 				}
 			// extended frame format (EFF)
 			// Re-arrange the frame if the DMA buffer is wrapped
@@ -647,6 +685,7 @@ static void sja1000_rx(struct net_device *dev)
 				{
 					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
 					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+                                        if (data_cnt == RX_DMA_BUF_SIZE) { data_cnt = 0; }
 				}
 				// standard frame format (SFF) 
 				// Re-arrange the frame if the DMA buffer is wrapped
@@ -685,8 +724,10 @@ static void sja1000_rx(struct net_device *dev)
 		int i;
 		/* create zero'ed CAN frame buffer */
 		skb = alloc_can_skb(dev, &cf);
-		if (skb == NULL)
+		if (skb == NULL) {
+                  DEBUG_INFO("alloc_can_skb failed FAIL\n");
 			return;
+                }
 
 		fi = priv->read_reg(priv, REG_FI);//also in can packet SJA1000 P39
 
@@ -803,7 +844,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 		netdev_dbg(dev, "arbitration lost interrupt\n");
 		alc = priv->read_reg(priv, REG_ALC);
 		priv->can.can_stats.arbitration_lost++;
-		stats->tx_errors++;
+		//stats->tx_errors++;
 		cf->can_id |= CAN_ERR_LOSTARB;
 		cf->data[0] = alc & 0x1f;
 	}
@@ -857,7 +898,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 	while ((isrc = priv->read_reg(priv, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
 		status = priv->read_reg(priv, REG_SR);
 		n++;
-		DEBUG_INFO("======adv_sja1000_interrupt,isrc:0x%0x,status:0x%0x\n",isrc,status);
+		DEBUG_INFO("======adv_sja1000_interrupt,serialNo:%d,isrc:0x%0x,status:0x%0x\n",priv->serialNo,isrc,status);
 
 		if (isrc & IRQ_WUI) {
 			netdev_warn(dev, "wakeup interrupt\n");
@@ -867,6 +908,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 			/* transmission buffer released */
 			if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT &&
 			    !(status & SR_TCS)) {
+                          DEBUG_INFO("ONE SHOT LOST");
 				stats->tx_errors++;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
 				can_free_echo_skb(dev, 0,NULL);
@@ -874,31 +916,40 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 				can_free_echo_skb(dev, 0);
 #endif
 			} else {
-				/* transmission complete */
-				if (!priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
+                          /* transmission complete */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
+                          (void)can_get_echo_skb(dev, 0,NULL);
+#else
+                          (void)can_get_echo_skb(dev, 0);
+#endif
+
+				if (true || !priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
 				{
 					stats->tx_bytes +=
 				 		priv->read_reg(priv, REG_FI) & 0xf;
 					stats->tx_packets++;
-				
-				
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-					(void)can_get_echo_skb(dev, 0,NULL);
-#else
-					(void)can_get_echo_skb(dev, 0);
-#endif
-				}
-				else//New,using Tx FIFO
-				{
-					uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
-										
-					if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {
-						netif_wake_queue(dev);
-					}
 				}
 
 			}
-			if (!priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
+                        //New,using Tx FIFO
+                        /*if (priv->tx_fifo_spted)
+                        {
+                          uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
+
+                          if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {
+                            netif_wake_queue(dev);
+                          }
+                        }*/
+
+                                {
+                                  u32 fifo_cnt = ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);
+                                  if (fifo_cnt != 0) {
+                                    DEBUG_INFO("mid priv->serialNo:%d fifo_cnt=%d\n", priv->serialNo, fifo_cnt);
+                                  }
+                                }
+
+                        
+			if (true || !priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
 			{
 				netif_wake_queue(dev);
 			}
@@ -934,10 +985,37 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
 			/* error interrupt */
 			if (sja1000_err(dev, isrc, status)) {
+                          DEBUG_INFO("error fail\n");
 				break;
 			}
 		}
 	}
+
+        {
+          u32 fifo_cnt = ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);
+          if (fifo_cnt != 0) {
+            DEBUG_INFO("end priv->serialNo:%d fifo_cnt=%d\n", priv->serialNo, fifo_cnt);
+          }
+        }
+        
+        /*
+        if (priv->tx_fifo_spted) {
+          if (netif_queue_stopped(dev)) {
+            // BUG: sometimes transmission buffer released interrupt is not received!
+            uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
+            if (uTxFifoSpace >= CAN_TX_FIFO_SIZE) {
+              DEBUG_INFO("netif_wake_queue called\n");
+              //#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
+              //		can_free_echo_skb(dev, 0,NULL);
+              //#else
+              //		can_free_echo_skb(dev, 0);
+              //#endif
+              netif_wake_queue(dev);
+            }
+          }
+        }
+        */
+
 	if (priv->post_irq) {
 		priv->post_irq(priv);
 	}
