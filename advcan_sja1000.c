@@ -134,8 +134,7 @@ static int sja1000_probe_chip(struct net_device *dev)
 	struct sja1000_priv *priv = netdev_priv(dev);
 
 	if (priv->reg_base && sja1000_is_absent(priv)) {
-		printk(KERN_INFO "%s: probing @0x%lX failed\n",
-		       DRV_NAME, dev->base_addr);
+      printk(KERN_INFO "%s: probing @0x%lX failed\n",DRV_NAME, dev->base_addr);
 		return 0;
 	}
 	return -1;
@@ -176,22 +175,21 @@ static void set_normal_mode(struct net_device *dev)
 		if ((status & MOD_RM) == 0) {
 			priv->can.state = CAN_STATE_ERROR_ACTIVE;
 			/* enable interrupts */
-			if (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
+         if (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING) {
 				priv->write_reg(priv, REG_IER, IRQ_ALL);
-			else
-				priv->write_reg(priv, REG_IER,
-						IRQ_ALL & ~IRQ_BEI);
+         } else {
+            priv->write_reg(priv, REG_IER,IRQ_ALL & ~IRQ_BEI);
+         }
 			return;
 		}
 
 		/* set chip to normal mode */
-		if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY)
+      if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
 			priv->write_reg(priv, REG_MOD, MOD_LOM);
-		else
+      } else {
 			priv->write_reg(priv, REG_MOD, 0x00);
-
+      }
 		udelay(10);
-
 		status = priv->read_reg(priv, REG_MOD);
 	}
 
@@ -235,13 +233,10 @@ static void PhaseDMA(struct net_device *dev)//exec each priv once
 
 	printk("@@@@@@@@@@ PhaseDMA enter\n");
 	
-	if(priv->dma_spted)
-	{
+   if(priv->dma_spted) {
 		ret = adv_dma_mem_alloc(&pdev->dev, RX_DMA_BUF_SIZE * sizeof(u32)+ sizeof(sgl_entry_t), &priv->ddma_buf);
-		if (ret)
-		{
-			if (priv->ddma_buf.kaddr) 
-			{
+      if (ret) {
+         if (priv->ddma_buf.kaddr) {
 				adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
 			}
 		}
@@ -279,8 +274,9 @@ static void sja1000_start(struct net_device *dev)//exec each priv once
 	struct sja1000_priv *priv = netdev_priv(dev);
 
 	/* leave reset mode */
-	if (priv->can.state != CAN_STATE_STOPPED)
+   if (priv->can.state != CAN_STATE_STOPPED) {
 		set_reset_mode(dev);
+   }
 
 	/* Clear error counters and error code capture */
 	priv->write_reg(priv, REG_TXERR, 0x0);
@@ -297,15 +293,17 @@ static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 
-	if (!priv->open_time)
+   if (!priv->open_time) {
 		return -EINVAL;
+   }
 
 	switch (mode) {
 	case CAN_MODE_START:
 		DEBUG_INFO("============sja1000_set_mode,CAN_MODE_START\n");
 		sja1000_start(dev);
-		if (netif_queue_stopped(dev))
+      if (netif_queue_stopped(dev)) {
 			netif_wake_queue(dev);
+      }
 		break;
 
 	default:
@@ -326,8 +324,9 @@ static int sja1000_set_bittiming(struct net_device *dev)
 	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
 	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
 		(((bt->phase_seg2 - 1) & 0x7) << 4);
-	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
+   if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) {
 		btr1 |= 0x80;
+   }
 
 	netdev_info(dev, "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
@@ -337,8 +336,7 @@ static int sja1000_set_bittiming(struct net_device *dev)
 	return 0;
 }
 
-static int sja1000_get_berr_counter(const struct net_device *dev,
-				    struct can_berr_counter *bec)
+static int sja1000_get_berr_counter(const struct net_device *dev,struct can_berr_counter *bec)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 
@@ -387,16 +385,12 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,struct net_device *dev
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 	/* Drop a given socketbuffer if it does not contain a valid CAN frame. */
-	if (can_dropped_invalid_skb(dev, skb)) 
-	{
+   if (can_dropped_invalid_skb(dev, skb)) {
 		return NETDEV_TX_OK;
 	}	
-	if (priv->tx_fifo_spted)//new branch supprot TX FIFO
-	{
+   if (priv->tx_fifo_spted) {//new branch supprot TX FIFO
 		return transmit_send_msg_tx_fifo(skb,dev);
-	}
-	else//old branch,not support Tx FIFO
-	{
+   } else {//old branch,not support Tx FIFO
 		return transmit_send_msg_legacy(skb,dev);
 	}
 }
@@ -418,13 +412,11 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 
 	fi = dlc = cf->can_dlc;
 	id = cf->can_id;
-	if (id & CAN_RTR_FLAG)
-	{
+   if (id & CAN_RTR_FLAG) {
 		fi |= FI_RTR;
 	}
 
-	if (id & CAN_EFF_FLAG) //extand trame
-	{
+   if (id & CAN_EFF_FLAG) {//extand trame
 		fi |= FI_FF;
       //id is 29 bit,to understand this you must know sja1000 document
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, fi);
@@ -440,8 +432,7 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 
 	}
 	//write data to FIFO
-	for (i = 0; i < dlc; i++)
-	{
+   for (i = 0; i < dlc; i++) {
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, cf->data[i]);
 	}
 
@@ -480,13 +471,11 @@ netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 	fi = dlc = cf->can_dlc;
 	id = cf->can_id;
 
-	if (id & CAN_RTR_FLAG)
-	{
+   if (id & CAN_RTR_FLAG) {
 		fi |= FI_RTR;
 	}
 
-	if (id & CAN_EFF_FLAG) 
-	{
+   if (id & CAN_EFF_FLAG) {
 		fi |= FI_FF;
 		dreg = EFF_BUF;
 		priv->write_reg(priv, REG_FI, fi);
@@ -494,16 +483,13 @@ netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 		priv->write_reg(priv, REG_ID2, (id & 0x001fe000) >> (5 + 8));
 		priv->write_reg(priv, REG_ID3, (id & 0x00001fe0) >> 5);
 		priv->write_reg(priv, REG_ID4, (id & 0x0000001f) << 3);
-	} 
-	else 
-	{
+   } else {
 		dreg = SFF_BUF;
 		priv->write_reg(priv, REG_FI, fi);
 		priv->write_reg(priv, REG_ID1, (id & 0x000007f8) >> 3);
 		priv->write_reg(priv, REG_ID2, (id & 0x00000007) << 5);
 	}
-	for (i = 0; i < dlc; i++)
-	{
+   for (i = 0; i < dlc; i++) {
 		priv->write_reg(priv, dreg++, cf->data[i]);
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
@@ -512,12 +498,9 @@ netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 	(void)can_put_echo_skb(skb, dev, 0);
 #endif
 
-	if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT)
-	{
+   if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT) {
 		sja1000_write_cmdreg(priv, CMD_TR | CMD_AT);
-	}
-	else
-	{
+   } else {
 		sja1000_write_cmdreg(priv, CMD_TR);
 	}
 
@@ -587,17 +570,14 @@ static void sja1000_rx_dma(struct net_device *dev)
 
 #if 0	
 		//just for debug,do not enable this branch.
-		for (int rb_rp = priv->rbuf_rp;rb_rp < priv->rbuf_rp + data_cnt;++rb_rp)
-		{
+   for (int rb_rp = priv->rbuf_rp;rb_rp < priv->rbuf_rp + data_cnt;++rb_rp) {
 			DEBUG_INFO("*********dma_buf[%d]:0x%0x\n",rb_rp % DMA_BUF_SIZE,dma_buf[rb_rp % DMA_BUF_SIZE]);
 		}
 #endif
-		while(data_cnt)
-		{
+   while(data_cnt) {
 			/* create zero'ed CAN frame buffer */
 			skb = alloc_can_skb(dev, &cf);
-			if (skb == NULL)
-			{
+      if (skb == NULL) {
 				continue;
 			}
 			dst = cf->data;
@@ -610,13 +590,11 @@ static void sja1000_rx_dma(struct net_device *dev)
 			cf->can_dlc = get_can_dlc(fi & 0x0F);
 			frm_dlc     = (fi & 0x0f) % 9;  // limit count to 8 bytes 
 
-			if (fi & FI_FF) //sja1000 p.43/44
-			{
+      if (fi & FI_FF) {//sja1000 p.43/44
 				// BUG:
 				// The interrupt may be arrived before the DMA Engine has completed the data transferring.
 				// Wait for a moment here.
-				while(data_cnt < frm_dlc + 4)
-				{
+         while(data_cnt < frm_dlc + 4) {
 					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
 					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
 				}
@@ -631,18 +609,14 @@ static void sja1000_rx_dma(struct net_device *dev)
 				cf->can_id |= CAN_EFF_FLAG;
 				data_cnt -= (frm_dlc + 4); 
 
-				while (frm_dlc--)
-				{
+         while (frm_dlc--) {
 					*dst++ = (u8)*src++;
 				}
-			}
-			else
-			{
+      } else {
 				// BUG:
 				// The interrupt may be arrived before the DMA Engine has completed the data transferring.
 				// Wait for a moment here.
-				while(data_cnt < frm_dlc + 2)
-				{
+         while(data_cnt < frm_dlc + 2) {
 					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
 					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
 				}
@@ -660,8 +634,7 @@ static void sja1000_rx_dma(struct net_device *dev)
 					*dst++ = (u8)*src++;
 				}
 			}
-			if (fi & FI_RTR) 
-			{
+      if (fi & FI_RTR) {
 				cf->can_id |= CAN_RTR_FLAG;
 			}
 			netif_rx(skb);
@@ -684,8 +657,9 @@ static void sja1000_rx_register(struct net_device *dev)
 		int i;
 		/* create zero'ed CAN frame buffer */
 		skb = alloc_can_skb(dev, &cf);
-		if (skb == NULL)
+   if (skb == NULL) {
 			return;
+   }
 
 		fi = priv->read_reg(priv, REG_FI);//also in can packet SJA1000 P39
 
@@ -708,9 +682,10 @@ static void sja1000_rx_register(struct net_device *dev)
 		if (fi & FI_RTR) {
 			id |= CAN_RTR_FLAG;
 		} else {
-			for (i = 0; i < cf->can_dlc; i++)
+      for (i = 0; i < cf->can_dlc; i++) {
 				cf->data[i] = priv->read_reg(priv, dreg++);
 		}
+   }
 
 		cf->can_id = id;
 
@@ -723,8 +698,6 @@ static void sja1000_rx_register(struct net_device *dev)
 		stats->rx_bytes += cf->can_dlc;
 	}
 
-}
-
 static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
@@ -735,8 +708,9 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 	uint8_t ecc, alc;
 
 	skb = alloc_can_err_skb(dev, &cf);
-	if (skb == NULL)
+   if (skb == NULL) {
 		return -ENOMEM;
+   }
 
 	if (isrc & IRQ_DOI) {
 		/* data overrun interrupt */
@@ -758,9 +732,10 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 			can_bus_off(dev);
 		} else if (status & SR_ES) {
 			state = CAN_STATE_ERROR_WARNING;
-		} else
+      } else {
 			state = CAN_STATE_ERROR_ACTIVE;
 	}
+   }
 	if (isrc & IRQ_BEI) {
 		/* bus error interrupt */
 		priv->can.can_stats.bus_error++;
@@ -786,17 +761,19 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 			break;
 		}
 		/* Error occurred during transmission? */
-		if ((ecc & ECC_DIR) == 0)
+      if ((ecc & ECC_DIR) == 0) {
 			cf->data[2] |= CAN_ERR_PROT_TX;
 	}
+   }
 	if (isrc & IRQ_EPI) {
 		/* error passive interrupt */
 		netdev_dbg(dev, "error passive interrupt\n");
-		if (status & SR_ES)
+      if (status & SR_ES) {
 			state = CAN_STATE_ERROR_PASSIVE;
-		else
+      } else {
 			state = CAN_STATE_ERROR_ACTIVE;
 	}
+   }
 	if (isrc & IRQ_ALI) {
 		/* arbitration lost interrupt */
 		netdev_dbg(dev, "arbitration lost interrupt\n");
@@ -807,8 +784,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 		cf->data[0] = alc & 0x1f;
 	}
 
-	if (state != priv->can.state && (state == CAN_STATE_ERROR_WARNING ||
-					 state == CAN_STATE_ERROR_PASSIVE)) {
+   if (state != priv->can.state && (state == CAN_STATE_ERROR_WARNING ||state == CAN_STATE_ERROR_PASSIVE) ) {
 		uint8_t rxerr = priv->read_reg(priv, REG_RXERR);
 		uint8_t txerr = priv->read_reg(priv, REG_TXERR);
 		cf->can_id |= CAN_ERR_CRTL;
@@ -864,8 +840,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 
 		if (isrc & IRQ_TI) {
 			/* transmission buffer released */
-			if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT &&
-			    !(status & SR_TCS)) {
+         if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT && !(status & SR_TCS)) {
 				stats->tx_errors++;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
 				can_free_echo_skb(dev, 0,NULL);
@@ -874,10 +849,8 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 #endif
 			} else {
 				/* transmission complete */
-				if (!priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
-				{
-					stats->tx_bytes +=
-				 		priv->read_reg(priv, REG_FI) & 0xf;
+            if (!priv->tx_fifo_spted) {//legacy£¬not using Tx FIFO
+               stats->tx_bytes += priv->read_reg(priv, REG_FI) & 0xf;
 					stats->tx_packets++;
 				
 				
@@ -886,9 +859,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 #else
 					(void)can_get_echo_skb(dev, 0);
 #endif
-				}
-				else//New,using Tx FIFO
-				{
+            } else {//New,using Tx FIFO
 					uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
 										
                if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {//FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
@@ -897,8 +868,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 				}
 
 			}
-			if (!priv->tx_fifo_spted)//legacy£¬not using Tx FIFO
-			{
+         if (!priv->tx_fifo_spted) {//legacy£¬not using Tx FIFO
 				netif_wake_queue(dev);
 			}
 		}
@@ -910,20 +880,17 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
             sja1000_rx_dma(dev);
 				status = priv->read_reg(priv, REG_SR);
 				/* check for absent controller */
-				if (status == 0xFF && sja1000_is_absent(priv))
-				{
+            if (status == 0xFF && sja1000_is_absent(priv)) {
 					return IRQ_NONE;
 				}
          } else {//legacy,reading register
 				while (status & SR_RBS) {
-
 					DEBUG_INFO("======Rx INT legacy,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
 
                sja1000_rx_register(dev);
 					status = priv->read_reg(priv, REG_SR);
 					/* check for absent controller */
-					if (status == 0xFF && sja1000_is_absent(priv))
-					{
+               if (status == 0xFF && sja1000_is_absent(priv)) {
 						return IRQ_NONE;
 					}
 				}
@@ -962,14 +929,16 @@ static int sja1000_open(struct net_device *dev)
 	netdev_dbg(dev, "sja1000_open \n ");
 	/* common open */
 	err = open_candev(dev);
-	if (err)
+   if (err) {
 		return err;
+   }
 
 	/* register interrupt handler, if not done by the device driver */
 	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
-		err = request_irq(dev->irq, adv_sja1000_interrupt, priv->irq_flags,
-				  dev->name, (void *)dev);
+      err = request_irq(dev->irq, adv_sja1000_interrupt, priv->irq_flags,dev->name, (void *)dev);
+
 		printk("irq= %d \n",dev->irq);
+
 		if (err) {
 			close_candev(dev);
 			return -EAGAIN;
@@ -998,8 +967,9 @@ static int sja1000_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	set_reset_mode(dev);
 
-	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER))
+   if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
 		free_irq(dev->irq, (void *)dev);
+   }
 
 	close_candev(dev);
 
@@ -1012,8 +982,7 @@ static int sja1000_close(struct net_device *dev)
 	//stop DMA 
 	iowrite32(2,priv->reg_base + DMA_CTRL); //1(0x01) start DMA,2(0x02) stop DMA
 
-	if (priv->ddma_buf.kaddr) 
-	{
+   if (priv->ddma_buf.kaddr) {
 		adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
 	}
 
@@ -1025,10 +994,10 @@ struct net_device *adv_alloc_sja1000dev(int sizeof_priv)
 	struct net_device *dev;
 	struct sja1000_priv *priv;
 
-	dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv,
-		SJA1000_ECHO_SKB_MAX);
-	if (!dev)
+   dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv,SJA1000_ECHO_SKB_MAX);
+   if (!dev) {
 		return NULL;
+   }
 
 	priv = netdev_priv(dev);
 
@@ -1043,8 +1012,9 @@ struct net_device *adv_alloc_sja1000dev(int sizeof_priv)
 
 	spin_lock_init(&priv->cmdreg_lock);
 
-	if (sizeof_priv)
+   if (sizeof_priv) {
 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
+   }
 
 	return dev;
 }
@@ -1064,8 +1034,9 @@ static const struct net_device_ops sja1000_netdev_ops = {
 
 int adv_register_sja1000dev(struct net_device *dev)
 {
-	if (!sja1000_probe_chip(dev))
+   if (!sja1000_probe_chip(dev)) {
 		return -ENODEV;
+   }
 
 	dev->flags |= IFF_ECHO;	/* we suppriv local echo */
 	dev->netdev_ops = &sja1000_netdev_ops;
