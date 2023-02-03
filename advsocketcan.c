@@ -79,123 +79,123 @@ static struct pci_device_id advcan_board_table[] = {
 };
 
 static struct pci_driver can_socket_pci_driver = {
-	.name = "advcan_pci_socket",
-	.id_table = advcan_board_table,
-	.probe = advcan_pci_init_one,
-	.remove = advcan_pci_remove_one,
+   .name = "advcan_pci_socket",
+   .id_table = advcan_board_table,
+   .probe = advcan_pci_init_one,
+   .remove = advcan_pci_remove_one,
 };
 
 
 static u8 advcan_read_io(const struct sja1000_priv *priv, int port)
 {
-	return inb((unsigned long)priv->reg_base + port);
+   return inb((unsigned long)priv->reg_base + port);
 }
 
 static void advcan_write_io(const struct sja1000_priv *priv,int port, u8 val)
 {
-	outb(val,(unsigned long) (priv->reg_base + port));
+   outb(val,(unsigned long) (priv->reg_base + port));
 }
 
 static u8 advcan_read_mem(const struct sja1000_priv *priv, int port)//port means reg offset,not port
 {
-	return ioread8(priv->reg_base + (port<<2));
+   return ioread8(priv->reg_base + (port<<2));
 }
 
 static void advcan_write_mem(const struct sja1000_priv *priv,int port, u8 val)//port means reg offset,not port
 {
-	iowrite8(val, priv->reg_base + (port<<2));
+   iowrite8(val, priv->reg_base + (port<<2));
 }
 
 
 static inline int check_CAN_chip(const struct sja1000_priv *priv)
 {
-	unsigned char flg;
+   unsigned char flg;
 
-	priv->write_reg(priv, REG_MOD, 1);//enter reset mode
-	priv->write_reg(priv, REG_CDR, CDR_PELICAN);
+   priv->write_reg(priv, REG_MOD, 1);//enter reset mode
+   priv->write_reg(priv, REG_CDR, CDR_PELICAN);
 
-	mdelay(2);
+   mdelay(2);
 
-	flg = priv->read_reg(priv, REG_CDR);//check enter reset mode
+   flg = priv->read_reg(priv, REG_CDR);//check enter reset mode
 
-	if (flg == CDR_PELICAN) return 1;
-	
-	return 0;
+   if (flg == CDR_PELICAN) return 1;
+
+   return 0;
 }
 
 
 static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *ent)
 {	
-	unsigned int portNum;
-	u64 address;
-	unsigned int bar,barFlag,offset,len;
-	int err;
-	struct advcan_pci_card *devExt;
-	struct sja1000_priv *priv;
-	struct net_device *dev;
-	int dma_spted = 0;
-	int txFIFOSpted = 0;
-	unsigned int lenBar2 = 0;
-	void __iomem *Bar2VirtualAddr = NULL;
-	u32 fpga_ver = 0;
-	
-	portNum = 0;
-	bar = 0;
-	barFlag = 0;
-	offset = 0x100;
+   unsigned int portNum;
+   u64 address;
+   unsigned int bar,barFlag,offset,len;
+   int err;
+   struct advcan_pci_card *devExt;
+   struct sja1000_priv *priv;
+   struct net_device *dev;
+   int dma_spted = 0;
+   int txFIFOSpted = 0;
+   unsigned int lenBar2 = 0;
+   void __iomem *Bar2VirtualAddr = NULL;
+   u32 fpga_ver = 0;
 
-	DEBUG_INFO("******** advcan_pci_init_one\n");
+   portNum = 0;
+   bar = 0;
+   barFlag = 0;
+   offset = 0x100;
+
+   DEBUG_INFO("******** advcan_pci_init_one\n");
 
    if (pci_enable_device(pdev) < 0) {
-		dev_err(&pdev->dev, "initialize device failed \n");
-		return -ENODEV;
-	}
+      dev_err(&pdev->dev, "initialize device failed \n");
+      return -ENODEV;
+   }
 
-	devExt = kzalloc(sizeof(struct advcan_pci_card), GFP_KERNEL);
+   devExt = kzalloc(sizeof(struct advcan_pci_card), GFP_KERNEL);
    if (devExt == NULL) {
-		dev_err(&pdev->dev, "allocate memory failed\n");
-		pci_disable_device(pdev);
-		return -ENOMEM;
-	}
+      dev_err(&pdev->dev, "allocate memory failed\n");
+      pci_disable_device(pdev);
+      return -ENOMEM;
+   }
 
-	pci_set_drvdata(pdev, devExt);
+   pci_set_drvdata(pdev, devExt);
 
-  if (   pdev->device == 0xc001
+   if (pdev->device == 0xc001
       || pdev->device == 0xc002
       || pdev->device == 0xc004
       || pdev->device == 0xc101
       || pdev->device == 0xc102
       || pdev->device == 0xc104) {
-      portNum = pdev->device & 0xf;
-      len = 0x100;
+         portNum = pdev->device & 0xf;
+         len = 0x100;
    }
-   else if ( pdev->device == 0xc201
+   else if (pdev->device == 0xc201
       || pdev->device == 0xc202
       || pdev->device == 0xc204
       || pdev->device == 0xc301
       || pdev->device == 0xc302
       || pdev->device == 0xc304 
-	  || pdev->device == 0x00c5
+      || pdev->device == 0x00c5
       || pdev->device == 0x00D7
       || pdev->device == 0x00F7) {
          if (pdev->device == 0x00c5 || pdev->device == 0x00D7 || pdev->device == 0x00F7) {
-		   portNum = 2;
-	   }
+            portNum = 2;
+         }
          else {
-		   portNum = pdev->device & 0xf;
-	   }
-	
-   	offset = 0x400;
-   	len = 0x400;
+            portNum = pdev->device & 0xf;
+         }
+
+         offset = 0x400;
+         len = 0x400;
    }
    else {
       if (pdev->device == 0x1680
          || pdev->device == 0x3680
          || pdev->device == 0x2052) {
-         portNum = 2;
-         bar = 2;
-         barFlag = 1;
-         offset = 0x0;
+            portNum = 2;
+            bar = 2;
+            barFlag = 1;
+            offset = 0x0;
       }
       else if (pdev->device == 0x1681) {
          portNum = 1;
@@ -206,153 +206,153 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
       len = 128;
    }
 
-	devExt->pci_dev		= pdev;
-	devExt->cardnum		= cardnum;
-	devExt->portNum		= portNum;
+   devExt->pci_dev		= pdev;
+   devExt->cardnum		= cardnum;
+   devExt->portNum		= portNum;
 
-	DEBUG_INFO("#####deviceID:0x%0x\n",pdev->device);
+   DEBUG_INFO("#####deviceID:0x%0x\n",pdev->device);
 
-	// Get FPGA version
-	lenBar2 = pci_resource_len(pdev, Fpga_Bar2);
+   // Get FPGA version
+   lenBar2 = pci_resource_len(pdev, Fpga_Bar2);
    if (lenBar2 > 0) {
-		u64 fpga_base = pci_resource_start(pdev, Fpga_Bar2);
-		DEBUG_INFO("------Bar2_fpga_base:0x%0llx,len:%d\n",fpga_base,lenBar2);
+      u64 fpga_base = pci_resource_start(pdev, Fpga_Bar2);
+      DEBUG_INFO("------Bar2_fpga_base:0x%0llx,len:%d\n",fpga_base,lenBar2);
 
       if( request_mem_region(fpga_base , lenBar2, "myadvcan") == NULL ) {
-			DEBUG_INFO ("request_mem_region error for BAR2\n");   
-			goto error_out;
-		}
-		
-		Bar2VirtualAddr = ioremap(fpga_base, lenBar2);
+         DEBUG_INFO ("request_mem_region error for BAR2\n");   
+         goto error_out;
+      }
+
+      Bar2VirtualAddr = ioremap(fpga_base, lenBar2);
 
       if (Bar2VirtualAddr == NULL) {
-			DEBUG_INFO ("memory map error for BAR2\n");
-			goto error_out;
-		}
+         DEBUG_INFO ("memory map error for BAR2\n");
+         goto error_out;
+      }
 
-		fpga_ver = ioread32(Bar2VirtualAddr);
-		printk("FPGA Version:0x%0x\n",fpga_ver);
+      fpga_ver = ioread32(Bar2VirtualAddr);
+      printk("FPGA Version:0x%0x\n",fpga_ver);
       if (fpga_ver >= 0x00010000) {//version >=  v0.1.0.0,support dma
-			dma_spted = 1;
-		}
+         dma_spted = 1;
+      }
       if (fpga_ver >= 0x00020000) {
-			txFIFOSpted = 1;
-		}
+         txFIFOSpted = 1;
+      }
 
-		iounmap(Bar2VirtualAddr);
-		release_mem_region(fpga_base,lenBar2);
-	}
+      iounmap(Bar2VirtualAddr);
+      release_mem_region(fpga_base,lenBar2);
+   }
 
    if (dma_spted) {//MSI must enable only once for each card,otherwise it will cause a kernal crash
 #ifdef CONFIG_PCI_MSI
-		pci_enable_msi(pdev);
-		pci_set_master(pdev);//for Rx DMA Or MSI interrupt,must enable bus master
+      pci_enable_msi(pdev);
+      pci_set_master(pdev);//for Rx DMA Or MSI interrupt,must enable bus master
 #endif
-	}
+   }
 
    for (int i = 0; i < devExt->portNum; i++) {
-      	address = pci_resource_start(pdev, bar)+ offset * i ;//device ID 0xc302  bar0
- 		devExt->Base[i] = address;
-        devExt->addlen[i] = len;
-	
-		dev = adv_alloc_sja1000dev(sizeof(struct advcan_pci_card));
+      address = pci_resource_start(pdev, bar)+ offset * i ;//device ID 0xc302  bar0
+      devExt->Base[i] = address;
+      devExt->addlen[i] = len;
+
+      dev = adv_alloc_sja1000dev(sizeof(struct advcan_pci_card));
       if (dev == NULL) {
-			goto error_out;
-		}
+         goto error_out;
+      }
 
-		devExt->net_dev[i] = dev;
-		priv = netdev_priv(dev);//point to struct sja1000_priv that alloc before
-		priv->priv = devExt;
-		priv->irq_flags = IRQF_SHARED;
+      devExt->net_dev[i] = dev;
+      priv = netdev_priv(dev);//point to struct sja1000_priv that alloc before
+      priv->priv = devExt;
+      priv->irq_flags = IRQF_SHARED;
 
-		priv->serialNo = portsernum;
+      priv->serialNo = portsernum;
 
-		printk("---------init one port;;;;priv->serialNo:%d\n",priv->serialNo);
+      printk("---------init one port;;;;priv->serialNo:%d\n",priv->serialNo);
 
-		//and dma support,FIFO support
-		priv->dma_spted = dma_spted;
-		priv->tx_fifo_spted = txFIFOSpted;
-		//end
-		dev->irq = pdev->irq;
+      //and dma support,FIFO support
+      priv->dma_spted = dma_spted;
+      priv->tx_fifo_spted = txFIFOSpted;
+      //end
+      dev->irq = pdev->irq;
 
-	      if( pdev->device == 0xc201
-	      ||  pdev->device == 0xc202
-	      ||  pdev->device == 0xc204
-	      ||  pdev->device == 0xc301
-	      ||  pdev->device == 0xc302
-	      ||  pdev->device == 0xc304 
-		  ||  pdev->device == 0x00c5
+      if(pdev->device == 0xc201
+         ||  pdev->device == 0xc202
+         ||  pdev->device == 0xc204
+         ||  pdev->device == 0xc301
+         ||  pdev->device == 0xc302
+         ||  pdev->device == 0xc304 
+         ||  pdev->device == 0x00c5
          ||  pdev->device == 0x00D7
          ||  pdev->device == 0x00F7) {//Memory
             if(request_mem_region(devExt->Base[i] , devExt->addlen[i], "advcan") == NULL ) {
-			    DEBUG_INFO ("memory map error\n");   
-				goto error_out;
-			}
-			priv->read_reg  = advcan_read_mem;
-			priv->write_reg = advcan_write_mem;
-			devExt->Base_mem[i] = ioremap(devExt->Base[i], devExt->addlen[i]);
+               DEBUG_INFO ("memory map error\n");   
+               goto error_out;
+            }
+            priv->read_reg  = advcan_read_mem;
+            priv->write_reg = advcan_write_mem;
+            devExt->Base_mem[i] = ioremap(devExt->Base[i], devExt->addlen[i]);
 
             if (devExt->Base_mem[i] == NULL) {
-				DEBUG_INFO ("ioremap error\n");
-				goto error_out;
-			}
-			priv->reg_base = devExt->Base_mem[i];//priv->reg_base is virtual address mapped by ioremap
-	       }
+               DEBUG_INFO ("ioremap error\n");
+               goto error_out;
+            }
+            priv->reg_base = devExt->Base_mem[i];//priv->reg_base is virtual address mapped by ioremap
+      }
       else {//IO
          if ( request_region(address, len, "advcan") == NULL ) {
-			   DEBUG_INFO ("IO map error\n"); 
-				goto error_out;
-			 }
-			priv->read_reg  = advcan_read_io;
-			priv->write_reg = advcan_write_io;
+            DEBUG_INFO ("IO map error\n"); 
+            goto error_out;
+         }
+         priv->read_reg  = advcan_read_io;
+         priv->write_reg = advcan_write_io;
 
-			priv->reg_base = (void *) (address);
-		}
+         priv->reg_base = (void *) (address);
+      }
       if (barFlag) {
-		   bar++ ;
-		}
+         bar++ ;
+      }
 
       if (check_CAN_chip(priv)) {
-			printk("Check channel OK!\n");
+         printk("Check channel OK!\n");
 
-			priv->can.clock.freq = CAN_Clock;
-			priv->ocr = sja1000_OCR;
-			priv->cdr = sja1000_CDR;
-			SET_NETDEV_DEV(dev, &pdev->dev);
+         priv->can.clock.freq = CAN_Clock;
+         priv->ocr = sja1000_OCR;
+         priv->cdr = sja1000_CDR;
+         SET_NETDEV_DEV(dev, &pdev->dev);
 
-			/* Register SJA1000 device */
-			err = adv_register_sja1000dev(dev);
+         /* Register SJA1000 device */
+         err = adv_register_sja1000dev(dev);
          if (err) {
-				dev_err(&pdev->dev, "Registering device failed (err=%d)\n", err);
-				adv_free_sja1000dev(dev);
-				goto error_out;
-			}
-		} 
+            dev_err(&pdev->dev, "Registering device failed (err=%d)\n", err);
+            adv_free_sja1000dev(dev);
+            goto error_out;
+         }
+      } 
       else {
-			adv_free_sja1000dev(dev);
-		}
-		portsernum++;
-	}
+         adv_free_sja1000dev(dev);
+      }
+      portsernum++;
+   }
 
-	cardnum++;
+   cardnum++;
 
-	return 0;
+   return 0;
 
 error_out:
-	DEBUG_INFO("init card error\n");
-	advcan_pci_remove_one(pdev);
-	return -EIO;;
+   DEBUG_INFO("init card error\n");
+   advcan_pci_remove_one(pdev);
+   return -EIO;;
 }
 
 
 static void advcan_pci_remove_one(struct pci_dev *pdev)
 {
-	struct net_device *dev;
-	struct advcan_pci_card *devExt = pci_get_drvdata(pdev);
-	struct sja1000_priv *priv = NULL;
+   struct net_device *dev;
+   struct advcan_pci_card *devExt = pci_get_drvdata(pdev);
+   struct sja1000_priv *priv = NULL;
 
    for (int i = 0; i < devExt->portNum; i++) {
-		dev = devExt->net_dev[i];
+      dev = devExt->net_dev[i];
       if (!dev) {
          continue;
       }
@@ -365,53 +365,53 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
          pci_disable_msi(pdev);
 #endif
       }
-		
-		dev_info(&pdev->dev, "Removing %s.\n", dev->name);
 
-		adv_unregister_sja1000dev(dev);
-		adv_free_sja1000dev(dev);
+      dev_info(&pdev->dev, "Removing %s.\n", dev->name);
 
-		if ( pdev->device == 0xc201
-	      	|| pdev->device == 0xc202
-	      	|| pdev->device == 0xc204
-	      	|| pdev->device == 0xc301
-	      	|| pdev->device == 0xc302
-	      	|| pdev->device == 0xc304 
-			|| pdev->device == 0x00c5
+      adv_unregister_sja1000dev(dev);
+      adv_free_sja1000dev(dev);
+
+      if ( pdev->device == 0xc201
+         || pdev->device == 0xc202
+         || pdev->device == 0xc204
+         || pdev->device == 0xc301
+         || pdev->device == 0xc302
+         || pdev->device == 0xc304 
+         || pdev->device == 0x00c5
          || pdev->device == 0x00D7
          || pdev->device == 0x00F7) {	 
-	    	 	iounmap(devExt->Base_mem[i]);
-		        release_mem_region(devExt->Base[i], devExt->addlen[i]);
-		}
+            iounmap(devExt->Base_mem[i]);
+            release_mem_region(devExt->Base[i], devExt->addlen[i]);
+      }
       else {
-		release_region(devExt->Base[i], devExt->addlen[i]);
-		}
-	}
+         release_region(devExt->Base[i], devExt->addlen[i]);		
+      }
+   }
 
-	kfree(devExt);
-	pci_disable_device(pdev);
-	pci_set_drvdata(pdev, NULL);
+   kfree(devExt);
+   pci_disable_device(pdev);
+   pci_set_drvdata(pdev, NULL);
 }
 
 
 static int __init advcan_socket_pci_init(void)
 {
-	printk("\n");
+   printk("\n");
 
-	printk("=============================================================");
-	printk("====\n");
-	printk("Advantech SocketCAN Drivers. V%s [%s]\n", serial_version, serial_revdate);
-	printk(" ----------------init----------------\n");
-	printk("=============================================================");
-	printk("====\n");
-	
-	return pci_register_driver(&can_socket_pci_driver);
+   printk("=============================================================");
+   printk("====\n");
+   printk("Advantech SocketCAN Drivers. V%s [%s]\n", serial_version, serial_revdate);
+   printk(" ----------------init----------------\n");
+   printk("=============================================================");
+   printk("====\n");
+
+   return pci_register_driver(&can_socket_pci_driver);
 }
 
 static void __exit advcan_socket_pci_exit(void)
 {
-	DEBUG_INFO(" -----------------exit----------------\n");
-	pci_unregister_driver(&can_socket_pci_driver);
+   DEBUG_INFO(" -----------------exit----------------\n");
+   pci_unregister_driver(&can_socket_pci_driver);
 }
 
 module_init(advcan_socket_pci_init);

@@ -1,46 +1,46 @@
 /*
- * sja1000.c -  Philips SJA1000 network device driver
- *
- * Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
- * 38106 Braunschweig, GERMANY
- *
- * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of Volkswagen nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * Alternatively, provided that this notice is retained in full, this
- * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2, in which case the provisions of the
- * GPL apply INSTEAD OF those given above.
- *
- * The provided data structures and external interfaces from this code
- * are not restricted to be used by modules with a GPL compatible license.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.
- *
- */
+* sja1000.c -  Philips SJA1000 network device driver
+*
+* Copyright (c) 2003 Matthias Brukner, Trajet Gmbh, Rebenring 33,
+* 38106 Braunschweig, GERMANY
+*
+* Copyright (c) 2002-2007 Volkswagen Group Electronic Research
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions
+* are met:
+* 1. Redistributions of source code must retain the above copyright
+*    notice, this list of conditions and the following disclaimer.
+* 2. Redistributions in binary form must reproduce the above copyright
+*    notice, this list of conditions and the following disclaimer in the
+*    documentation and/or other materials provided with the distribution.
+* 3. Neither the name of Volkswagen nor the names of its contributors
+*    may be used to endorse or promote products derived from this software
+*    without specific prior written permission.
+*
+* Alternatively, provided that this notice is retained in full, this
+* software may be distributed under the terms of the GNU General
+* Public License ("GPL") version 2, in which case the provisions of the
+* GPL apply INSTEAD OF those given above.
+*
+* The provided data structures and external interfaces from this code
+* are not restricted to be used by modules with a GPL compatible license.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+* DAMAGE.
+*
+*/
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -99,420 +99,420 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION(DRV_NAME "CAN netdevice driver");
 
 static const struct can_bittiming_const sja1000_bittiming_const = {
-	.name = DRV_NAME,
-	.tseg1_min = 1,
-	.tseg1_max = 16,
-	.tseg2_min = 1,
-	.tseg2_max = 8,
-	.sjw_max = 4,
-	.brp_min = 1,
-	.brp_max = 64,
-	.brp_inc = 1,
+   .name = DRV_NAME,
+   .tseg1_min = 1,
+   .tseg1_max = 16,
+   .tseg2_min = 1,
+   .tseg2_max = 8,
+   .sjw_max = 4,
+   .brp_min = 1,
+   .brp_max = 64,
+   .brp_inc = 1,
 };
 
 static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
 {
-	unsigned long flags;
+   unsigned long flags;
 
-	/*
-	 * The command register needs some locking and time to settle
-	 * the write_reg() operation - especially on SMP systems.
-	 */
-	spin_lock_irqsave(&priv->cmdreg_lock, flags);
-	priv->write_reg(priv, REG_CMR, val);
-	priv->read_reg(priv, REG_SR);
-	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
+   /*
+   * The command register needs some locking and time to settle
+   * the write_reg() operation - especially on SMP systems.
+   */
+   spin_lock_irqsave(&priv->cmdreg_lock, flags);
+   priv->write_reg(priv, REG_CMR, val);
+   priv->read_reg(priv, REG_SR);
+   spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
 }
 
 static int sja1000_is_absent(struct sja1000_priv *priv)
 {
-	return (priv->read_reg(priv, REG_MOD) == 0xFF);
+   return (priv->read_reg(priv, REG_MOD) == 0xFF);
 }
 
 static int sja1000_probe_chip(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
+   struct sja1000_priv *priv = netdev_priv(dev);
 
-	if (priv->reg_base && sja1000_is_absent(priv)) {
+   if (priv->reg_base && sja1000_is_absent(priv)) {
       printk(KERN_INFO "%s: probing @0x%lX failed\n",DRV_NAME, dev->base_addr);
-		return 0;
-	}
-	return -1;
+      return 0;
+   }
+   return -1;
 }
 
 static void set_reset_mode(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	unsigned char status = priv->read_reg(priv, REG_MOD);
-	int i;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   unsigned char status = priv->read_reg(priv, REG_MOD);
+   int i;
 
-	/* disable interrupts */
-	priv->write_reg(priv, REG_IER, IRQ_OFF);
+   /* disable interrupts */
+   priv->write_reg(priv, REG_IER, IRQ_OFF);
 
-	for (i = 0; i < 100; i++) {
-		/* check reset bit */
-		if (status & MOD_RM) {
-			priv->can.state = CAN_STATE_STOPPED;
-			return;
-		}
+   for (i = 0; i < 100; i++) {
+      /* check reset bit */
+      if (status & MOD_RM) {
+         priv->can.state = CAN_STATE_STOPPED;
+         return;
+      }
 
-		priv->write_reg(priv, REG_MOD, MOD_RM);	/* reset chip */
-		udelay(10);
-		status = priv->read_reg(priv, REG_MOD);
-	}
+      priv->write_reg(priv, REG_MOD, MOD_RM);	/* reset chip */
+      udelay(10);
+      status = priv->read_reg(priv, REG_MOD);
+   }
 
-	netdev_err(dev, "setting SJA1000 into reset mode failed!\n");
+   netdev_err(dev, "setting SJA1000 into reset mode failed!\n");
 }
 
 static void set_normal_mode(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	unsigned char status = priv->read_reg(priv, REG_MOD);
-	int i;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   unsigned char status = priv->read_reg(priv, REG_MOD);
+   int i;
 
-	for (i = 0; i < 100; i++) {
-		/* check reset bit */
-		if ((status & MOD_RM) == 0) {
-			priv->can.state = CAN_STATE_ERROR_ACTIVE;
-			/* enable interrupts */
+   for (i = 0; i < 100; i++) {
+      /* check reset bit */
+      if ((status & MOD_RM) == 0) {
+         priv->can.state = CAN_STATE_ERROR_ACTIVE;
+         /* enable interrupts */
          if (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING) {
-				priv->write_reg(priv, REG_IER, IRQ_ALL);
+            priv->write_reg(priv, REG_IER, IRQ_ALL);
          } else {
             priv->write_reg(priv, REG_IER,IRQ_ALL & ~IRQ_BEI);
          }
-			return;
-		}
-
-		/* set chip to normal mode */
-      if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
-			priv->write_reg(priv, REG_MOD, MOD_LOM);
-      } else {
-			priv->write_reg(priv, REG_MOD, 0x00);
+         return;
       }
-		udelay(10);
-		status = priv->read_reg(priv, REG_MOD);
-	}
 
-	netdev_err(dev, "setting SJA1000 into normal mode failed!\n");
+      /* set chip to normal mode */
+      if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
+         priv->write_reg(priv, REG_MOD, MOD_LOM);
+      } else {
+         priv->write_reg(priv, REG_MOD, 0x00);
+      }
+      udelay(10);
+      status = priv->read_reg(priv, REG_MOD);
+   }
+
+   netdev_err(dev, "setting SJA1000 into normal mode failed!\n");
 }
 
 
 int adv_dma_mem_alloc(struct device *dev, unsigned size, daq_dma_mem_t *mem)
 {
-	dma_addr_t daddr = 0;
+   dma_addr_t daddr = 0;
 
-	BUG_ON(!mem);
+   BUG_ON(!mem);
 
-	mem->size  = size;
-	mem->kaddr = dma_alloc_coherent(dev, size, &daddr, GFP_KERNEL);
-	mem->daddr = daddr;
+   mem->size  = size;
+   mem->kaddr = dma_alloc_coherent(dev, size, &daddr, GFP_KERNEL);
+   mem->daddr = daddr;
 
-	return mem->kaddr == NULL ? -ENOMEM : 0;
+   return mem->kaddr == NULL ? -ENOMEM : 0;
 }
 
 void adv_dma_mem_free(struct device *dev, daq_dma_mem_t *mem)
 {
-	BUG_ON(!mem);
-	if (mem->kaddr) {
-		dma_free_coherent(dev, mem->size, mem->kaddr, (dma_addr_t)mem->daddr);
-	}
-	mem->kaddr = NULL;
+   BUG_ON(!mem);
+   if (mem->kaddr) {
+      dma_free_coherent(dev, mem->size, mem->kaddr, (dma_addr_t)mem->daddr);
+   }
+   mem->kaddr = NULL;
 }
 
 static void PhaseDMA(struct net_device *dev)//exec each priv once
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct advcan_pci_card *devExt = NULL;
-	struct pci_dev * pdev = NULL;
-	int ret = 0;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct advcan_pci_card *devExt = NULL;
+   struct pci_dev * pdev = NULL;
+   int ret = 0;
 
-	//alloc DMA memory
-	devExt = (struct advcan_pci_card *)priv->priv;
+   //alloc DMA memory
+   devExt = (struct advcan_pci_card *)priv->priv;
 
-	pdev = devExt->pci_dev;
+   pdev = devExt->pci_dev;
 
-	printk("@@@@@@@@@@ PhaseDMA enter\n");
-	
+   printk("@@@@@@@@@@ PhaseDMA enter\n");
+
    if(priv->dma_spted) {
-		ret = adv_dma_mem_alloc(&pdev->dev, RX_DMA_BUF_SIZE * sizeof(u32)+ sizeof(sgl_entry_t), &priv->ddma_buf);
+      ret = adv_dma_mem_alloc(&pdev->dev, RX_DMA_BUF_SIZE * sizeof(u32)+ sizeof(sgl_entry_t), &priv->ddma_buf);
       if (ret) {
          if (priv->ddma_buf.kaddr) {
-				adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
-			}
-		}
-		//enable DMA
+            adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
+         }
+      }
+      //enable DMA
 
-		printk("============sja1000_start, DMA support; regbase:0x%p\n",priv->reg_base);
+      printk("============sja1000_start, DMA support; regbase:0x%p\n",priv->reg_base);
 
-		iowrite32(priv->dma_spted,priv->reg_base + CAN_0_MODE);//CAN_0_MODE 0x200; CAN_1_MODE 0x600   OFFSET 0x400
-	
+      iowrite32(priv->dma_spted,priv->reg_base + CAN_0_MODE);//CAN_0_MODE 0x200; CAN_1_MODE 0x600   OFFSET 0x400
 
-		priv->sgl_entry = (sgl_entry_t *)((u8*)priv->ddma_buf.kaddr + RX_DMA_BUF_SIZE * sizeof(u32));
-		priv->sgl_entry->data_length  = RX_DMA_BUF_SIZE/*priv->ddma_buf.size/sizeof(u32)*/;
-		priv->sgl_entry->pciaddr_low  = (u32)(priv->ddma_buf.daddr);
-		priv->sgl_entry->pciaddr_high = (u32)(priv->ddma_buf.daddr >> 32);
-		priv->sgl_entry->desc_ptr.pci_addr_low = (u32)(priv->ddma_buf.daddr + RX_DMA_BUF_SIZE * sizeof(u32));
-		priv->sgl_entry->desc_ptr.pciadrr_high = (u32)((priv->ddma_buf.daddr + RX_DMA_BUF_SIZE * sizeof(u32)) >> 32);
-		priv->rbuf_rp = 0;
 
-		printk("**********regbase:0x%p,pciaddr_low:0x%0x,pciaddr_high:0x%0x,next_low:0x%0x,next_high:0x%0x\n",priv->reg_base,priv->sgl_entry->pciaddr_low,priv->sgl_entry->pciaddr_high,priv->sgl_entry->desc_ptr.pci_addr_low,priv->sgl_entry->desc_ptr.pciadrr_high);
+      priv->sgl_entry = (sgl_entry_t *)((u8*)priv->ddma_buf.kaddr + RX_DMA_BUF_SIZE * sizeof(u32));
+      priv->sgl_entry->data_length  = RX_DMA_BUF_SIZE/*priv->ddma_buf.size/sizeof(u32)*/;
+      priv->sgl_entry->pciaddr_low  = (u32)(priv->ddma_buf.daddr);
+      priv->sgl_entry->pciaddr_high = (u32)(priv->ddma_buf.daddr >> 32);
+      priv->sgl_entry->desc_ptr.pci_addr_low = (u32)(priv->ddma_buf.daddr + RX_DMA_BUF_SIZE * sizeof(u32));
+      priv->sgl_entry->desc_ptr.pciadrr_high = (u32)((priv->ddma_buf.daddr + RX_DMA_BUF_SIZE * sizeof(u32)) >> 32);
+      priv->rbuf_rp = 0;
 
-		iowrite32(priv->sgl_entry->data_length,priv->reg_base + CAN_0_RxDMA_SIZE);//CAN_0_DMA_SIZE 0x20c ; CAN_1_DMA_SIZE 0x60c
-		iowrite32(priv->sgl_entry->pciaddr_low,priv->reg_base + PCIADDR_LOW);//pciaddr_low
-		iowrite32(priv->sgl_entry->pciaddr_high ,priv->reg_base + PCIADDR_HIGH);//pciaddr_high
-		iowrite32(priv->sgl_entry->desc_ptr.pci_addr_low,priv->reg_base + NEXT_DPR_LOW);//Next descriptor low
-		iowrite32(priv->sgl_entry->desc_ptr.pciadrr_high,priv->reg_base + NEXT_DPR_HIGH);//Next descriptor high
-		iowrite32(2,priv->reg_base +DMA_FIFO_CTRL);//clear DMA FIFO
+      printk("**********regbase:0x%p,pciaddr_low:0x%0x,pciaddr_high:0x%0x,next_low:0x%0x,next_high:0x%0x\n",priv->reg_base,priv->sgl_entry->pciaddr_low,priv->sgl_entry->pciaddr_high,priv->sgl_entry->desc_ptr.pci_addr_low,priv->sgl_entry->desc_ptr.pciadrr_high);
 
-		//start DMA 
-		iowrite32(1,priv->reg_base + DMA_CTRL); //1(0x01) start DMA,2(0x02) stop DMA
-	}
-	//end
+      iowrite32(priv->sgl_entry->data_length,priv->reg_base + CAN_0_RxDMA_SIZE);//CAN_0_DMA_SIZE 0x20c ; CAN_1_DMA_SIZE 0x60c
+      iowrite32(priv->sgl_entry->pciaddr_low,priv->reg_base + PCIADDR_LOW);//pciaddr_low
+      iowrite32(priv->sgl_entry->pciaddr_high ,priv->reg_base + PCIADDR_HIGH);//pciaddr_high
+      iowrite32(priv->sgl_entry->desc_ptr.pci_addr_low,priv->reg_base + NEXT_DPR_LOW);//Next descriptor low
+      iowrite32(priv->sgl_entry->desc_ptr.pciadrr_high,priv->reg_base + NEXT_DPR_HIGH);//Next descriptor high
+      iowrite32(2,priv->reg_base +DMA_FIFO_CTRL);//clear DMA FIFO
+
+      //start DMA 
+      iowrite32(1,priv->reg_base + DMA_CTRL); //1(0x01) start DMA,2(0x02) stop DMA
+   }
+   //end
 }
 static void sja1000_start(struct net_device *dev)//exec each priv once
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
+   struct sja1000_priv *priv = netdev_priv(dev);
 
-	/* leave reset mode */
+   /* leave reset mode */
    if (priv->can.state != CAN_STATE_STOPPED) {
-		set_reset_mode(dev);
+      set_reset_mode(dev);
    }
 
-	/* Clear error counters and error code capture */
-	priv->write_reg(priv, REG_TXERR, 0x0);
-	priv->write_reg(priv, REG_RXERR, 0x0);
-	priv->read_reg(priv, REG_ECC);
+   /* Clear error counters and error code capture */
+   priv->write_reg(priv, REG_TXERR, 0x0);
+   priv->write_reg(priv, REG_RXERR, 0x0);
+   priv->read_reg(priv, REG_ECC);
 
-	/* leave reset mode */
-	set_normal_mode(dev);
+   /* leave reset mode */
+   set_normal_mode(dev);
 
-	PhaseDMA(dev);
+   PhaseDMA(dev);
 }
 
 static int sja1000_set_mode(struct net_device *dev, enum can_mode mode)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
+   struct sja1000_priv *priv = netdev_priv(dev);
 
    if (!priv->open_time) {
-		return -EINVAL;
+      return -EINVAL;
    }
 
-	switch (mode) {
-	case CAN_MODE_START:
-		DEBUG_INFO("============sja1000_set_mode,CAN_MODE_START\n");
-		sja1000_start(dev);
+   switch (mode) {
+   case CAN_MODE_START:
+      DEBUG_INFO("============sja1000_set_mode,CAN_MODE_START\n");
+      sja1000_start(dev);
       if (netif_queue_stopped(dev)) {
-			netif_wake_queue(dev);
+         netif_wake_queue(dev);
       }
-		break;
+      break;
 
-	default:
-		return -EOPNOTSUPP;
-	}
+   default:
+      return -EOPNOTSUPP;
+   }
 
-	return 0;
+   return 0;
 }
 
 static int sja1000_set_bittiming(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct can_bittiming *bt = &priv->can.bittiming;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct can_bittiming *bt = &priv->can.bittiming;
 
-	u8 btr0, btr1;
-	netdev_info(dev, "sja1000_set_bittiming enter\n");
+   u8 btr0, btr1;
+   netdev_info(dev, "sja1000_set_bittiming enter\n");
 
-	btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
-	btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
-		(((bt->phase_seg2 - 1) & 0x7) << 4);
+   btr0 = ((bt->brp - 1) & 0x3f) | (((bt->sjw - 1) & 0x3) << 6);
+   btr1 = ((bt->prop_seg + bt->phase_seg1 - 1) & 0xf) |
+      (((bt->phase_seg2 - 1) & 0x7) << 4);
    if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) {
-		btr1 |= 0x80;
+      btr1 |= 0x80;
    }
 
-	netdev_info(dev, "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
+   netdev_info(dev, "setting BTR0=0x%02x BTR1=0x%02x\n", btr0, btr1);
 
-	priv->write_reg(priv, REG_BTR0, btr0);
-	priv->write_reg(priv, REG_BTR1, btr1);
+   priv->write_reg(priv, REG_BTR0, btr0);
+   priv->write_reg(priv, REG_BTR1, btr1);
 
-	return 0;
+   return 0;
 }
 
 static int sja1000_get_berr_counter(const struct net_device *dev,struct can_berr_counter *bec)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
+   struct sja1000_priv *priv = netdev_priv(dev);
 
-	bec->txerr = priv->read_reg(priv, REG_TXERR);
-	bec->rxerr = priv->read_reg(priv, REG_RXERR);
+   bec->txerr = priv->read_reg(priv, REG_TXERR);
+   bec->rxerr = priv->read_reg(priv, REG_RXERR);
 
-	return 0;
+   return 0;
 }
 
 /*
- * initialize SJA1000 chip:
- *   - reset chip
- *   - set output mode
- *   - set baudrate
- *   - enable interrupts
- *   - start operating mode
- */
+* initialize SJA1000 chip:
+*   - reset chip
+*   - set output mode
+*   - set baudrate
+*   - enable interrupts
+*   - start operating mode
+*/
 static void chipset_init(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
+   struct sja1000_priv *priv = netdev_priv(dev);
 
-	/* set clock divider and output control register */
-	priv->write_reg(priv, REG_CDR, priv->cdr | CDR_PELICAN);
+   /* set clock divider and output control register */
+   priv->write_reg(priv, REG_CDR, priv->cdr | CDR_PELICAN);
 
-	/* set acceptance filter (accept all) */
-	priv->write_reg(priv, REG_ACCC0, 0x00);
-	priv->write_reg(priv, REG_ACCC1, 0x00);
-	priv->write_reg(priv, REG_ACCC2, 0x00);
-	priv->write_reg(priv, REG_ACCC3, 0x00);
+   /* set acceptance filter (accept all) */
+   priv->write_reg(priv, REG_ACCC0, 0x00);
+   priv->write_reg(priv, REG_ACCC1, 0x00);
+   priv->write_reg(priv, REG_ACCC2, 0x00);
+   priv->write_reg(priv, REG_ACCC3, 0x00);
 
-	priv->write_reg(priv, REG_ACCM0, 0xFF);
-	priv->write_reg(priv, REG_ACCM1, 0xFF);
-	priv->write_reg(priv, REG_ACCM2, 0xFF);
-	priv->write_reg(priv, REG_ACCM3, 0xFF);
+   priv->write_reg(priv, REG_ACCM0, 0xFF);
+   priv->write_reg(priv, REG_ACCM1, 0xFF);
+   priv->write_reg(priv, REG_ACCM2, 0xFF);
+   priv->write_reg(priv, REG_ACCM3, 0xFF);
 
-	priv->write_reg(priv, REG_OCR, priv->ocr | OCR_MODE_NORMAL);
+   priv->write_reg(priv, REG_OCR, priv->ocr | OCR_MODE_NORMAL);
 }
 
 /*
- * transmit a CAN message
- * message layout in the sk_buff should be like this:
- * xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
- * [  can-id ] [flags] [len] [can data (up to 8 bytes]
- */
+* transmit a CAN message
+* message layout in the sk_buff should be like this:
+* xx xx xx xx	 ff	 ll   00 11 22 33 44 55 66 77
+* [  can-id ] [flags] [len] [can data (up to 8 bytes]
+*/
 static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	/* Drop a given socketbuffer if it does not contain a valid CAN frame. */
+   struct sja1000_priv *priv = netdev_priv(dev);
+   /* Drop a given socketbuffer if it does not contain a valid CAN frame. */
    if (can_dropped_invalid_skb(dev, skb)) {
-		return NETDEV_TX_OK;
-	}	
+      return NETDEV_TX_OK;
+   }	
    if (priv->tx_fifo_spted) {//new branch supprot TX FIFO
-		return transmit_send_msg_tx_fifo(skb,dev);
+      return transmit_send_msg_tx_fifo(skb,dev);
    } else {//old branch,not support Tx FIFO
-		return transmit_send_msg_legacy(skb,dev);
-	}
+      return transmit_send_msg_legacy(skb,dev);
+   }
 }
 
 netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct can_frame *cf;
-	uint8_t fi = 0;
-	uint8_t dlc = 0;
-	canid_t id = 0;
-	int i = 0;
-	u32 uTxFifoSpace = 0;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct can_frame *cf;
+   uint8_t fi = 0;
+   uint8_t dlc = 0;
+   canid_t id = 0;
+   int i = 0;
+   u32 uTxFifoSpace = 0;
 
-	struct net_device_stats *stats = &dev->stats;
-	cf = (struct can_frame *)skb->data;
+   struct net_device_stats *stats = &dev->stats;
+   cf = (struct can_frame *)skb->data;
 
-    netif_stop_queue(dev);
+   netif_stop_queue(dev);
 
-	fi = dlc = cf->can_dlc;
-	id = cf->can_id;
+   fi = dlc = cf->can_dlc;
+   id = cf->can_id;
    if (id & CAN_RTR_FLAG) {
-		fi |= FI_RTR;
-	}
+      fi |= FI_RTR;
+   }
 
    if (id & CAN_EFF_FLAG) {//extand trame
-		fi |= FI_FF;
+      fi |= FI_FF;
       //id is 29 bit,to understand this you must know sja1000 document
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, fi);
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x1fe00000) >> (5 + 16));
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x001fe000) >> (5 + 8));
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00001fe0) >> 5);
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x0000001f) << 3);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, fi);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x1fe00000) >> (5 + 16));
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x001fe000) >> (5 + 8));
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00001fe0) >> 5);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x0000001f) << 3);
    } else {//standard
       //id is 11 bit,to understand this you must know sja1000 document
-		priv->write_reg(priv, CAN_TX_FIFO_DIN,fi);
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x000007f8) >> 3);
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00000007) << 5);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN,fi);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x000007f8) >> 3);
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00000007) << 5);
 
-	}
-	//write data to FIFO
+   }
+   //write data to FIFO
    for (i = 0; i < dlc; i++) {
-		priv->write_reg(priv, CAN_TX_FIFO_DIN, cf->data[i]);
-	}
+      priv->write_reg(priv, CAN_TX_FIFO_DIN, cf->data[i]);
+   }
 
-	stats->tx_bytes += 8;
-	stats->tx_packets++;
+   stats->tx_bytes += 8;
+   stats->tx_packets++;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-	(void)can_put_echo_skb(skb, dev, 0,0);
-	(void)can_get_echo_skb(dev, 0,NULL);
+   (void)can_put_echo_skb(skb, dev, 0,0);
+   (void)can_get_echo_skb(dev, 0,NULL);
 #else
-	(void)can_put_echo_skb(skb, dev, 0);
-	(void)can_get_echo_skb(dev, 0);
+   (void)can_put_echo_skb(skb, dev, 0);
+   (void)can_get_echo_skb(dev, 0);
 #endif
 
-	// check whether rest space of FIFO can still hold a packet (CAN max packet size is 13) 
-	uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454 
+   // check whether rest space of FIFO can still hold a packet (CAN max packet size is 13) 
+   uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454 
    if (uTxFifoSpace >= 26) { //FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
-		netif_wake_queue(dev);
-	} 
+      netif_wake_queue(dev);
+   } 
 
-	return NETDEV_TX_OK;
+   return NETDEV_TX_OK;
 }
 
 netdev_tx_t transmit_send_msg_legacy(struct sk_buff *skb,struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct can_frame *cf = (struct can_frame *)skb->data;
-	uint8_t fi = 0;
-	uint8_t dlc = 0;
-	canid_t id = 0;
-	uint8_t dreg = 0;
-	int i = 0;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct can_frame *cf = (struct can_frame *)skb->data;
+   uint8_t fi = 0;
+   uint8_t dlc = 0;
+   canid_t id = 0;
+   uint8_t dreg = 0;
+   int i = 0;
 
-	netif_stop_queue(dev);
+   netif_stop_queue(dev);
 
-	fi = dlc = cf->can_dlc;
-	id = cf->can_id;
+   fi = dlc = cf->can_dlc;
+   id = cf->can_id;
 
    if (id & CAN_RTR_FLAG) {
-		fi |= FI_RTR;
-	}
+      fi |= FI_RTR;
+   }
 
    if (id & CAN_EFF_FLAG) {
-		fi |= FI_FF;
-		dreg = EFF_BUF;
-		priv->write_reg(priv, REG_FI, fi);
-		priv->write_reg(priv, REG_ID1, (id & 0x1fe00000) >> (5 + 16));
-		priv->write_reg(priv, REG_ID2, (id & 0x001fe000) >> (5 + 8));
-		priv->write_reg(priv, REG_ID3, (id & 0x00001fe0) >> 5);
-		priv->write_reg(priv, REG_ID4, (id & 0x0000001f) << 3);
+      fi |= FI_FF;
+      dreg = EFF_BUF;
+      priv->write_reg(priv, REG_FI, fi);
+      priv->write_reg(priv, REG_ID1, (id & 0x1fe00000) >> (5 + 16));
+      priv->write_reg(priv, REG_ID2, (id & 0x001fe000) >> (5 + 8));
+      priv->write_reg(priv, REG_ID3, (id & 0x00001fe0) >> 5);
+      priv->write_reg(priv, REG_ID4, (id & 0x0000001f) << 3);
    } else {
-		dreg = SFF_BUF;
-		priv->write_reg(priv, REG_FI, fi);
-		priv->write_reg(priv, REG_ID1, (id & 0x000007f8) >> 3);
-		priv->write_reg(priv, REG_ID2, (id & 0x00000007) << 5);
-	}
+      dreg = SFF_BUF;
+      priv->write_reg(priv, REG_FI, fi);
+      priv->write_reg(priv, REG_ID1, (id & 0x000007f8) >> 3);
+      priv->write_reg(priv, REG_ID2, (id & 0x00000007) << 5);
+   }
    for (i = 0; i < dlc; i++) {
-		priv->write_reg(priv, dreg++, cf->data[i]);
-	}
+      priv->write_reg(priv, dreg++, cf->data[i]);
+   }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-	(void)can_put_echo_skb(skb, dev, 0,0);
+   (void)can_put_echo_skb(skb, dev, 0,0);
 #else
-	(void)can_put_echo_skb(skb, dev, 0);
+   (void)can_put_echo_skb(skb, dev, 0);
 #endif
 
    if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT) {
-		sja1000_write_cmdreg(priv, CMD_TR | CMD_AT);
+      sja1000_write_cmdreg(priv, CMD_TR | CMD_AT);
    } else {
-		sja1000_write_cmdreg(priv, CMD_TR);
-	}
+      sja1000_write_cmdreg(priv, CMD_TR);
+   }
 
-	return NETDEV_TX_OK;
+   return NETDEV_TX_OK;
 }
 
 /***************************************************************************
 can_priv_dma_frame_prepare
-   Repacking the CAN frame from DMA ring buffer into a continuous memory buffer.
+Repacking the CAN frame from DMA ring buffer into a continuous memory buffer.
 
 Return Value:
-   Pointer to CAN frame which is in continuous memory buffer.
+Pointer to CAN frame which is in continuous memory buffer.
 ***************************************************************************/
 static inline u32 * can_port_dma_frame_prepare(struct sja1000_priv *priv, u32 frm_len, u32 xbuf[CAN_FRAME_MAX_LEN])
 {
@@ -542,531 +542,531 @@ static inline u32 * can_port_dma_frame_prepare(struct sja1000_priv *priv, u32 fr
 
 static void sja1000_rx_dma(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	u32 *dma_buf = NULL;
-	u32 rbuf_wp = 0;
-	u32 data_cnt = 0;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   u32 *dma_buf = NULL;
+   u32 rbuf_wp = 0;
+   u32 data_cnt = 0;
 
-	unsigned char *dst = NULL;
-	u32* src = NULL;
-	unsigned frm_dlc = 0;
-	u32 xbuf[CAN_FRAME_MAX_LEN];
+   unsigned char *dst = NULL;
+   u32* src = NULL;
+   unsigned frm_dlc = 0;
+   u32 xbuf[CAN_FRAME_MAX_LEN];
    //new branch;DMA;copy data from memory
-		struct net_device_stats *stats = &dev->stats;
-		struct can_frame *cf;
-		struct sk_buff *skb;
-		uint8_t fi;
-		
-		dma_buf =  (u32 *)priv->ddma_buf.kaddr;
+   struct net_device_stats *stats = &dev->stats;
+   struct can_frame *cf;
+   struct sk_buff *skb;
+   uint8_t fi;
+
+   dma_buf =  (u32 *)priv->ddma_buf.kaddr;
 
    /* release receive buffer,it means clear RX interrupt flag not clear RX FIFO data */ //NOTE!!,HW said This operation should be done before we read RX DMA count and RX FIFO memory,if not so£¬some frames may not received immediately.
    sja1000_write_cmdreg(priv, CMD_RRB);
 
-		rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT);//CAN_0_RXDMA_CNT 0x228;CAN_0_RXDMA_CNT 0x628,note that offset 0x400 is add to the second priv's Bass address in pci_init_one 
+   rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT);//CAN_0_RXDMA_CNT 0x228;CAN_0_RXDMA_CNT 0x628,note that offset 0x400 is add to the second priv's Bass address in pci_init_one 
 
-		data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+   data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
 
-		DEBUG_INFO("=========$$$$$$$$$ data_cnt:%d,rbuf_wp:%d,dmaBufAddr:0x%p\n",data_cnt,rbuf_wp,dma_buf);
+   DEBUG_INFO("=========$$$$$$$$$ data_cnt:%d,rbuf_wp:%d,dmaBufAddr:0x%p\n",data_cnt,rbuf_wp,dma_buf);
 
 #if 0	
-		//just for debug,do not enable this branch.
+   //just for debug,do not enable this branch.
    for (int rb_rp = priv->rbuf_rp;rb_rp < priv->rbuf_rp + data_cnt;++rb_rp) {
-			DEBUG_INFO("*********dma_buf[%d]:0x%0x\n",rb_rp % DMA_BUF_SIZE,dma_buf[rb_rp % DMA_BUF_SIZE]);
-		}
+      DEBUG_INFO("*********dma_buf[%d]:0x%0x\n",rb_rp % DMA_BUF_SIZE,dma_buf[rb_rp % DMA_BUF_SIZE]);
+   }
 #endif
    while(data_cnt) {
-			/* create zero'ed CAN frame buffer */
-			skb = alloc_can_skb(dev, &cf);
+      /* create zero'ed CAN frame buffer */
+      skb = alloc_can_skb(dev, &cf);
       if (skb == NULL) {
-				continue;
-			}
-			dst = cf->data;
-			// Get frame information
-			fi = dma_buf[priv->rbuf_rp++];     //sja1000 p.43 table.37
-			priv->rbuf_rp %= RX_DMA_BUF_SIZE;
-			// DONOT forget the 'frame info' field
-			data_cnt--;
-			//get message length
-			cf->can_dlc = get_can_dlc(fi & 0x0F);
-			frm_dlc     = (fi & 0x0f) % 9;  // limit count to 8 bytes 
+         continue;
+      }
+      dst = cf->data;
+      // Get frame information
+      fi = dma_buf[priv->rbuf_rp++];     //sja1000 p.43 table.37
+      priv->rbuf_rp %= RX_DMA_BUF_SIZE;
+      // DONOT forget the 'frame info' field
+      data_cnt--;
+      //get message length
+      cf->can_dlc = get_can_dlc(fi & 0x0F);
+      frm_dlc     = (fi & 0x0f) % 9;  // limit count to 8 bytes 
 
       if (fi & FI_FF) {//sja1000 p.43/44
-				// BUG:
-				// The interrupt may be arrived before the DMA Engine has completed the data transferring.
-				// Wait for a moment here.
+         // BUG:
+         // The interrupt may be arrived before the DMA Engine has completed the data transferring.
+         // Wait for a moment here.
          while(data_cnt < frm_dlc + 4) {
-					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
-					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
-				}
-			// extended frame format (EFF)
-			// Re-arrange the frame if the DMA buffer is wrapped
-				src = can_port_dma_frame_prepare(priv, frm_dlc + 4, xbuf);
-				cf->can_id = *src++ << 21;
-				cf->can_id |= *src++ << 13;
-				cf->can_id |= *src++ << 5;
-				cf->can_id |= *src++ >> 3;
+            rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
+            data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+         }
+         // extended frame format (EFF)
+         // Re-arrange the frame if the DMA buffer is wrapped
+         src = can_port_dma_frame_prepare(priv, frm_dlc + 4, xbuf);
+         cf->can_id = *src++ << 21;
+         cf->can_id |= *src++ << 13;
+         cf->can_id |= *src++ << 5;
+         cf->can_id |= *src++ >> 3;
 
-				cf->can_id |= CAN_EFF_FLAG;
-				data_cnt -= (frm_dlc + 4); 
+         cf->can_id |= CAN_EFF_FLAG;
+         data_cnt -= (frm_dlc + 4); 
 
          while (frm_dlc--) {
-					*dst++ = (u8)*src++;
-				}
+            *dst++ = (u8)*src++;
+         }
       } else {
-				// BUG:
-				// The interrupt may be arrived before the DMA Engine has completed the data transferring.
-				// Wait for a moment here.
+         // BUG:
+         // The interrupt may be arrived before the DMA Engine has completed the data transferring.
+         // Wait for a moment here.
          while(data_cnt < frm_dlc + 2) {
-					rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
-					data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
-				}
-				// standard frame format (SFF) 
-				// Re-arrange the frame if the DMA buffer is wrapped
-				src = can_port_dma_frame_prepare(priv, frm_dlc + 2, xbuf);
+            rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT); 
+            data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
+         }
+         // standard frame format (SFF) 
+         // Re-arrange the frame if the DMA buffer is wrapped
+         src = can_port_dma_frame_prepare(priv, frm_dlc + 2, xbuf);
 
-				// Transfer CAN frame into RX FIFO
-				cf->can_id  = *src++ << 3;
-				cf->can_id |= *src++ >> 5;
+         // Transfer CAN frame into RX FIFO
+         cf->can_id  = *src++ << 3;
+         cf->can_id |= *src++ >> 5;
 
-				data_cnt -= (frm_dlc + 2); 
+         data_cnt -= (frm_dlc + 2); 
 
-				while (frm_dlc--) {
-					*dst++ = (u8)*src++;
-				}
-			}
+         while (frm_dlc--) {
+            *dst++ = (u8)*src++;
+         }
+      }
       if (fi & FI_RTR) {
-				cf->can_id |= CAN_RTR_FLAG;
-			}
-			netif_rx(skb);
+         cf->can_id |= CAN_RTR_FLAG;
+      }
+      netif_rx(skb);
 
-			stats->rx_packets++;
-			stats->rx_bytes += cf->can_dlc;
-		}
-	}
+      stats->rx_packets++;
+      stats->rx_bytes += cf->can_dlc;
+   } 
+}
 
 static void sja1000_rx_register(struct net_device *dev)
-	{
+{
    //old branch;read register
    struct sja1000_priv *priv = netdev_priv(dev);
-		struct net_device_stats *stats = &dev->stats;
-		struct can_frame *cf;
-		struct sk_buff *skb;
-		uint8_t fi;
-		uint8_t dreg;
-		canid_t id;
-		int i;
-		/* create zero'ed CAN frame buffer */
-		skb = alloc_can_skb(dev, &cf);
+   struct net_device_stats *stats = &dev->stats;
+   struct can_frame *cf;
+   struct sk_buff *skb;
+   uint8_t fi;
+   uint8_t dreg;
+   canid_t id;
+   int i;
+   /* create zero'ed CAN frame buffer */
+   skb = alloc_can_skb(dev, &cf);
    if (skb == NULL) {
-			return;
+      return;
    }
 
-		fi = priv->read_reg(priv, REG_FI);//also in can packet SJA1000 P39
+   fi = priv->read_reg(priv, REG_FI);//also in can packet SJA1000 P39
 
-		if (fi & FI_FF) {
-			/* extended frame format (EFF) */
-			dreg = EFF_BUF;
-			id = (priv->read_reg(priv, REG_ID1) << (5 + 16))
-				| (priv->read_reg(priv, REG_ID2) << (5 + 8))
-				| (priv->read_reg(priv, REG_ID3) << 5)
-				| (priv->read_reg(priv, REG_ID4) >> 3);
-			id |= CAN_EFF_FLAG;
-		} else {
-			/* standard frame format (SFF) */
-			dreg = SFF_BUF;
-			id = (priv->read_reg(priv, REG_ID1) << 3)
-				| (priv->read_reg(priv, REG_ID2) >> 5);
-		}
+   if (fi & FI_FF) {
+      /* extended frame format (EFF) */
+      dreg = EFF_BUF;
+      id = (priv->read_reg(priv, REG_ID1) << (5 + 16))
+         | (priv->read_reg(priv, REG_ID2) << (5 + 8))
+         | (priv->read_reg(priv, REG_ID3) << 5)
+         | (priv->read_reg(priv, REG_ID4) >> 3);
+      id |= CAN_EFF_FLAG;
+   } else {
+      /* standard frame format (SFF) */
+      dreg = SFF_BUF;
+      id = (priv->read_reg(priv, REG_ID1) << 3)
+         | (priv->read_reg(priv, REG_ID2) >> 5);
+   }
 
-		cf->can_dlc = get_can_dlc(fi & 0x0F);
-		if (fi & FI_RTR) {
-			id |= CAN_RTR_FLAG;
-		} else {
+   cf->can_dlc = get_can_dlc(fi & 0x0F);
+   if (fi & FI_RTR) {
+      id |= CAN_RTR_FLAG;
+   } else {
       for (i = 0; i < cf->can_dlc; i++) {
-				cf->data[i] = priv->read_reg(priv, dreg++);
-		}
+         cf->data[i] = priv->read_reg(priv, dreg++);
+      }
    }
 
-		cf->can_id = id;
+   cf->can_id = id;
 
-		/* release receive buffer */
-		sja1000_write_cmdreg(priv, CMD_RRB);
+   /* release receive buffer */
+   sja1000_write_cmdreg(priv, CMD_RRB);
 
-		netif_rx(skb);
+   netif_rx(skb);
 
-		stats->rx_packets++;
-		stats->rx_bytes += cf->can_dlc;
-	}
+   stats->rx_packets++;
+   stats->rx_bytes += cf->can_dlc;
+}
 
 static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = &dev->stats;
-	struct can_frame *cf;
-	struct sk_buff *skb;
-	enum can_state state = priv->can.state;
-	uint8_t ecc, alc;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct net_device_stats *stats = &dev->stats;
+   struct can_frame *cf;
+   struct sk_buff *skb;
+   enum can_state state = priv->can.state;
+   uint8_t ecc, alc;
 
-	skb = alloc_can_err_skb(dev, &cf);
+   skb = alloc_can_err_skb(dev, &cf);
    if (skb == NULL) {
-		return -ENOMEM;
+      return -ENOMEM;
    }
 
-	if (isrc & IRQ_DOI) {
-		/* data overrun interrupt */
-		netdev_dbg(dev, "data overrun interrupt\n");
-		cf->can_id |= CAN_ERR_CRTL;
-		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
-		stats->rx_over_errors++;
-		stats->rx_errors++;
-		sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
-	}
+   if (isrc & IRQ_DOI) {
+      /* data overrun interrupt */
+      netdev_dbg(dev, "data overrun interrupt\n");
+      cf->can_id |= CAN_ERR_CRTL;
+      cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+      stats->rx_over_errors++;
+      stats->rx_errors++;
+      sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
+   }
 
-	if (isrc & IRQ_EI) {
-		/* error warning interrupt */
-		netdev_dbg(dev, "error warning interrupt\n");
+   if (isrc & IRQ_EI) {
+      /* error warning interrupt */
+      netdev_dbg(dev, "error warning interrupt\n");
 
-		if (status & SR_BS) {
-			state = CAN_STATE_BUS_OFF;
-			cf->can_id |= CAN_ERR_BUSOFF;
-			can_bus_off(dev);
-		} else if (status & SR_ES) {
-			state = CAN_STATE_ERROR_WARNING;
+      if (status & SR_BS) {
+         state = CAN_STATE_BUS_OFF;
+         cf->can_id |= CAN_ERR_BUSOFF;
+         can_bus_off(dev);
+      } else if (status & SR_ES) {
+         state = CAN_STATE_ERROR_WARNING;
       } else {
-			state = CAN_STATE_ERROR_ACTIVE;
-	}
+         state = CAN_STATE_ERROR_ACTIVE;
+      }
    }
-	if (isrc & IRQ_BEI) {
-		/* bus error interrupt */
-		priv->can.can_stats.bus_error++;
-		stats->rx_errors++;
+   if (isrc & IRQ_BEI) {
+      /* bus error interrupt */
+      priv->can.can_stats.bus_error++;
+      stats->rx_errors++;
 
-		ecc = priv->read_reg(priv, REG_ECC);
+      ecc = priv->read_reg(priv, REG_ECC);
 
-		cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+      cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
 
-		switch (ecc & ECC_MASK) {
-		case ECC_BIT:
-			cf->data[2] |= CAN_ERR_PROT_BIT;
-			break;
-		case ECC_FORM:
-			cf->data[2] |= CAN_ERR_PROT_FORM;
-			break;
-		case ECC_STUFF:
-			cf->data[2] |= CAN_ERR_PROT_STUFF;
-			break;
-		default:
-			cf->data[2] |= CAN_ERR_PROT_UNSPEC;
-			cf->data[3] = ecc & ECC_SEG;
-			break;
-		}
-		/* Error occurred during transmission? */
+      switch (ecc & ECC_MASK) {
+      case ECC_BIT:
+         cf->data[2] |= CAN_ERR_PROT_BIT;
+         break;
+      case ECC_FORM:
+         cf->data[2] |= CAN_ERR_PROT_FORM;
+         break;
+      case ECC_STUFF:
+         cf->data[2] |= CAN_ERR_PROT_STUFF;
+         break;
+      default:
+         cf->data[2] |= CAN_ERR_PROT_UNSPEC;
+         cf->data[3] = ecc & ECC_SEG;
+         break;
+      }
+      /* Error occurred during transmission? */
       if ((ecc & ECC_DIR) == 0) {
-			cf->data[2] |= CAN_ERR_PROT_TX;
-	}
+         cf->data[2] |= CAN_ERR_PROT_TX;
+      }
    }
-	if (isrc & IRQ_EPI) {
-		/* error passive interrupt */
-		netdev_dbg(dev, "error passive interrupt\n");
+   if (isrc & IRQ_EPI) {
+      /* error passive interrupt */
+      netdev_dbg(dev, "error passive interrupt\n");
       if (status & SR_ES) {
-			state = CAN_STATE_ERROR_PASSIVE;
+         state = CAN_STATE_ERROR_PASSIVE;
       } else {
-			state = CAN_STATE_ERROR_ACTIVE;
-	}
+         state = CAN_STATE_ERROR_ACTIVE;
+      }
    }
-	if (isrc & IRQ_ALI) {
-		/* arbitration lost interrupt */
-		netdev_dbg(dev, "arbitration lost interrupt\n");
-		alc = priv->read_reg(priv, REG_ALC);
-		priv->can.can_stats.arbitration_lost++;
-		stats->tx_errors++;
-		cf->can_id |= CAN_ERR_LOSTARB;
-		cf->data[0] = alc & 0x1f;
-	}
+   if (isrc & IRQ_ALI) {
+      /* arbitration lost interrupt */
+      netdev_dbg(dev, "arbitration lost interrupt\n");
+      alc = priv->read_reg(priv, REG_ALC);
+      priv->can.can_stats.arbitration_lost++;
+      stats->tx_errors++;
+      cf->can_id |= CAN_ERR_LOSTARB;
+      cf->data[0] = alc & 0x1f;
+   }
 
    if (state != priv->can.state && (state == CAN_STATE_ERROR_WARNING ||state == CAN_STATE_ERROR_PASSIVE) ) {
-		uint8_t rxerr = priv->read_reg(priv, REG_RXERR);
-		uint8_t txerr = priv->read_reg(priv, REG_TXERR);
-		cf->can_id |= CAN_ERR_CRTL;
-		if (state == CAN_STATE_ERROR_WARNING) {
-			priv->can.can_stats.error_warning++;
-			cf->data[1] = (txerr > rxerr) ?
-				CAN_ERR_CRTL_TX_WARNING :
-				CAN_ERR_CRTL_RX_WARNING;
-		} else {
-			priv->can.can_stats.error_passive++;
-			cf->data[1] = (txerr > rxerr) ?
-				CAN_ERR_CRTL_TX_PASSIVE :
-				CAN_ERR_CRTL_RX_PASSIVE;
-		}
-		cf->data[6] = txerr;
-		cf->data[7] = rxerr;
-	}
+         uint8_t rxerr = priv->read_reg(priv, REG_RXERR);
+         uint8_t txerr = priv->read_reg(priv, REG_TXERR);
+         cf->can_id |= CAN_ERR_CRTL;
+         if (state == CAN_STATE_ERROR_WARNING) {
+            priv->can.can_stats.error_warning++;
+            cf->data[1] = (txerr > rxerr) ?
+CAN_ERR_CRTL_TX_WARNING :
+            CAN_ERR_CRTL_RX_WARNING;
+         } else {
+            priv->can.can_stats.error_passive++;
+            cf->data[1] = (txerr > rxerr) ?
+CAN_ERR_CRTL_TX_PASSIVE :
+            CAN_ERR_CRTL_RX_PASSIVE;
+         }
+         cf->data[6] = txerr;
+         cf->data[7] = rxerr;
+   }
 
-	priv->can.state = state;
+   priv->can.state = state;
 
-	netif_rx(skb);
+   netif_rx(skb);
 
-	stats->rx_packets++;
-	stats->rx_bytes += cf->can_dlc;
+   stats->rx_packets++;
+   stats->rx_bytes += cf->can_dlc;
 
-	return 0;
+   return 0;
 }
 
 irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 {
-	struct net_device *dev = (struct net_device *)dev_id;
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct net_device_stats *stats = &dev->stats;
-	uint8_t isrc, status;
-	int n = 0;
-	u32 uTxFifoSpace = 0;
+   struct net_device *dev = (struct net_device *)dev_id;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct net_device_stats *stats = &dev->stats;
+   uint8_t isrc, status;
+   int n = 0;
+   u32 uTxFifoSpace = 0;
 
-	/* Shared interrupts and IRQ off? */
-	if (priv->read_reg(priv, REG_IER) == IRQ_OFF) {
-		return IRQ_NONE;
-	}
-	if (priv->pre_irq) {
-		priv->pre_irq(priv);
-	}
-	while ((isrc = priv->read_reg(priv, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
-		status = priv->read_reg(priv, REG_SR);
-		n++;
-		DEBUG_INFO("======adv_sja1000_interrupt,isrc:0x%0x,status:0x%0x\n",isrc,status);
+   /* Shared interrupts and IRQ off? */
+   if (priv->read_reg(priv, REG_IER) == IRQ_OFF) {
+      return IRQ_NONE;
+   }
+   if (priv->pre_irq) {
+      priv->pre_irq(priv);
+   }
+   while ((isrc = priv->read_reg(priv, REG_IR)) && (n < SJA1000_MAX_IRQ)) {
+      status = priv->read_reg(priv, REG_SR);
+      n++;
+      DEBUG_INFO("======adv_sja1000_interrupt,isrc:0x%0x,status:0x%0x\n",isrc,status);
 
-		if (isrc & IRQ_WUI) {
-			netdev_warn(dev, "wakeup interrupt\n");
-		}
+      if (isrc & IRQ_WUI) {
+         netdev_warn(dev, "wakeup interrupt\n");
+      }
 
-		if (isrc & IRQ_TI) {
-			/* transmission buffer released */
+      if (isrc & IRQ_TI) {
+         /* transmission buffer released */
          if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT && !(status & SR_TCS)) {
-				stats->tx_errors++;
+               stats->tx_errors++;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
-				can_free_echo_skb(dev, 0,NULL);
+               can_free_echo_skb(dev, 0,NULL);
 #else
-				can_free_echo_skb(dev, 0);
+               can_free_echo_skb(dev, 0);
 #endif
-			} else {
-				/* transmission complete */
+         } else {
+            /* transmission complete */
             if (!priv->tx_fifo_spted) {//legacy£¬not using Tx FIFO
                stats->tx_bytes += priv->read_reg(priv, REG_FI) & 0xf;
-					stats->tx_packets++;
-				
-				
+               stats->tx_packets++;
+
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
-					(void)can_get_echo_skb(dev, 0,NULL);
+               (void)can_get_echo_skb(dev, 0,NULL);
 #else
-					(void)can_get_echo_skb(dev, 0);
+               (void)can_get_echo_skb(dev, 0);
 #endif
             } else {//New,using Tx FIFO
-					uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
-										
-               if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {//FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
-						netif_wake_queue(dev);
-					}
-				}
+               uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
 
-			}
+               if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {//FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
+                  netif_wake_queue(dev);
+               }
+            }
+
+         }
          if (!priv->tx_fifo_spted) {//legacy£¬not using Tx FIFO
-				netif_wake_queue(dev);
-			}
-		}
-		if (isrc & IRQ_RI) {
-			/* receive interrupt */
-			if (priv->dma_spted){
-				DEBUG_INFO("======Rx INT DMA,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
+            netif_wake_queue(dev);
+         }
+      }
+      if (isrc & IRQ_RI) {
+         /* receive interrupt */
+         if (priv->dma_spted) {
+            DEBUG_INFO("======Rx INT DMA,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
 
             sja1000_rx_dma(dev);
-				status = priv->read_reg(priv, REG_SR);
-				/* check for absent controller */
+            status = priv->read_reg(priv, REG_SR);
+            /* check for absent controller */
             if (status == 0xFF && sja1000_is_absent(priv)) {
-					return IRQ_NONE;
-				}
+               return IRQ_NONE;
+            }
          } else {//legacy,reading register
-				while (status & SR_RBS) {
-					DEBUG_INFO("======Rx INT legacy,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
+            while (status & SR_RBS) {
+               DEBUG_INFO("======Rx INT legacy,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
 
                sja1000_rx_register(dev);
-					status = priv->read_reg(priv, REG_SR);
-					/* check for absent controller */
+               status = priv->read_reg(priv, REG_SR);
+               /* check for absent controller */
                if (status == 0xFF && sja1000_is_absent(priv)) {
-						return IRQ_NONE;
-					}
-				}
-			}
-		}
-		if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
-			/* error interrupt */
-			if (sja1000_err(dev, isrc, status)) {
-				break;
-			}
-		}
-	}
-	if (priv->post_irq) {
-		priv->post_irq(priv);
-	}
+                  return IRQ_NONE;
+               }
+            }
+         }
+      }
+      if (isrc & (IRQ_DOI | IRQ_EI | IRQ_BEI | IRQ_EPI | IRQ_ALI)) {
+         /* error interrupt */
+         if (sja1000_err(dev, isrc, status)) {
+            break;
+         }
+      }
+   }
+   if (priv->post_irq) {
+      priv->post_irq(priv);
+   }
 
-	if (n >= SJA1000_MAX_IRQ) {
-		netdev_dbg(dev, "%d messages handled in ISR", n);
-	}
+   if (n >= SJA1000_MAX_IRQ) {
+      netdev_dbg(dev, "%d messages handled in ISR", n);
+   }
 
-	return (n) ? IRQ_HANDLED : IRQ_NONE;
+   return (n) ? IRQ_HANDLED : IRQ_NONE;
 
 }
 
 
 static int sja1000_open(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	
-//	struct advcan_pci_card *card = pcidev_priv(priv->priv);
-	int err;
+   struct sja1000_priv *priv = netdev_priv(dev);
 
-	/* set chip into reset mode */
-	set_reset_mode(dev);
+   //	struct advcan_pci_card *card = pcidev_priv(priv->priv);
+   int err;
 
-	netdev_dbg(dev, "sja1000_open \n ");
-	/* common open */
-	err = open_candev(dev);
+   /* set chip into reset mode */
+   set_reset_mode(dev);
+
+   netdev_dbg(dev, "sja1000_open \n ");
+   /* common open */
+   err = open_candev(dev);
    if (err) {
-		return err;
+      return err;
    }
 
-	/* register interrupt handler, if not done by the device driver */
-	if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
+   /* register interrupt handler, if not done by the device driver */
+   if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
       err = request_irq(dev->irq, adv_sja1000_interrupt, priv->irq_flags,dev->name, (void *)dev);
 
-		printk("irq= %d \n",dev->irq);
+      printk("irq= %d \n",dev->irq);
 
-		if (err) {
-			close_candev(dev);
-			return -EAGAIN;
-		}
-	}
+      if (err) {
+         close_candev(dev);
+         return -EAGAIN;
+      }
+   }
 
-	/* init and start chi */
-	sja1000_start(dev);
-	priv->open_time = jiffies;
+   /* init and start chi */
+   sja1000_start(dev);
+   priv->open_time = jiffies;
 
-	netif_start_queue(dev);
+   netif_start_queue(dev);
 
-	return 0;
+   return 0;
 }
 
 static int sja1000_close(struct net_device *dev)
 {
-	struct sja1000_priv *priv = netdev_priv(dev);
-	struct advcan_pci_card *devExt = NULL;
+   struct sja1000_priv *priv = netdev_priv(dev);
+   struct advcan_pci_card *devExt = NULL;
 
-	struct pci_dev * pdev = NULL;
+   struct pci_dev * pdev = NULL;
 
-	devExt = (struct advcan_pci_card *)priv->priv;
-	pdev = devExt->pci_dev;
+   devExt = (struct advcan_pci_card *)priv->priv;
+   pdev = devExt->pci_dev;
 
-	netif_stop_queue(dev);
-	set_reset_mode(dev);
+   netif_stop_queue(dev);
+   set_reset_mode(dev);
 
    if (!(priv->flags & SJA1000_CUSTOM_IRQ_HANDLER)) {
-		free_irq(dev->irq, (void *)dev);
+      free_irq(dev->irq, (void *)dev);
    }
 
-	close_candev(dev);
+   close_candev(dev);
 
-	priv->open_time = 0;
+   priv->open_time = 0;
 
-	devExt = (struct advcan_pci_card *)priv->priv;
+   devExt = (struct advcan_pci_card *)priv->priv;
 
-	iowrite32(0,priv->reg_base + CAN_0_MODE);//CAN_0_MODE 0x200; CAN_1_MODE 0x600  OFFSET  0x400;note that offset is add to priv->reg_base in function advcan_pci_init_one
+   iowrite32(0,priv->reg_base + CAN_0_MODE);//CAN_0_MODE 0x200; CAN_1_MODE 0x600  OFFSET  0x400;note that offset is add to priv->reg_base in function advcan_pci_init_one
 
-	//stop DMA 
-	iowrite32(2,priv->reg_base + DMA_CTRL); //1(0x01) start DMA,2(0x02) stop DMA
+   //stop DMA 
+   iowrite32(2,priv->reg_base + DMA_CTRL); //1(0x01) start DMA,2(0x02) stop DMA
 
    if (priv->ddma_buf.kaddr) {
-		adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
-	}
+      adv_dma_mem_free(&pdev->dev, &priv->ddma_buf); 
+   }
 
-	return 0;
+   return 0;
 }
 
 struct net_device *adv_alloc_sja1000dev(int sizeof_priv)
 {
-	struct net_device *dev;
-	struct sja1000_priv *priv;
+   struct net_device *dev;
+   struct sja1000_priv *priv;
 
    dev = alloc_candev(sizeof(struct sja1000_priv) + sizeof_priv,SJA1000_ECHO_SKB_MAX);
    if (!dev) {
-		return NULL;
+      return NULL;
    }
 
-	priv = netdev_priv(dev);
+   priv = netdev_priv(dev);
 
-	priv->dev = dev;
-	priv->can.bittiming_const = &sja1000_bittiming_const;
-	priv->can.do_set_bittiming = sja1000_set_bittiming;
-	priv->can.do_set_mode = sja1000_set_mode;
-	priv->can.do_get_berr_counter = sja1000_get_berr_counter;
-	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-		CAN_CTRLMODE_BERR_REPORTING | CAN_CTRLMODE_LISTENONLY |
-		CAN_CTRLMODE_ONE_SHOT;
+   priv->dev = dev;
+   priv->can.bittiming_const = &sja1000_bittiming_const;
+   priv->can.do_set_bittiming = sja1000_set_bittiming;
+   priv->can.do_set_mode = sja1000_set_mode;
+   priv->can.do_get_berr_counter = sja1000_get_berr_counter;
+   priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
+      CAN_CTRLMODE_BERR_REPORTING | CAN_CTRLMODE_LISTENONLY |
+      CAN_CTRLMODE_ONE_SHOT;
 
-	spin_lock_init(&priv->cmdreg_lock);
+   spin_lock_init(&priv->cmdreg_lock);
 
    if (sizeof_priv) {
-		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
+      priv->priv = (void *)priv + sizeof(struct sja1000_priv);
    }
 
-	return dev;
+   return dev;
 }
 EXPORT_SYMBOL_GPL(adv_alloc_sja1000dev);
 
 void adv_free_sja1000dev(struct net_device *dev)
 {
-	free_candev(dev);
+   free_candev(dev);
 }
 EXPORT_SYMBOL_GPL(adv_free_sja1000dev);
 
 static const struct net_device_ops sja1000_netdev_ops = {
-       .ndo_open               = sja1000_open,
-       .ndo_stop               = sja1000_close,
-       .ndo_start_xmit         = sja1000_start_xmit,
+   .ndo_open               = sja1000_open,
+   .ndo_stop               = sja1000_close,
+   .ndo_start_xmit         = sja1000_start_xmit,
 };
 
 int adv_register_sja1000dev(struct net_device *dev)
 {
    if (!sja1000_probe_chip(dev)) {
-		return -ENODEV;
+      return -ENODEV;
    }
 
-	dev->flags |= IFF_ECHO;	/* we suppriv local echo */
-	dev->netdev_ops = &sja1000_netdev_ops;
+   dev->flags |= IFF_ECHO;	/* we suppriv local echo */
+   dev->netdev_ops = &sja1000_netdev_ops;
 
-	set_reset_mode(dev);
-	chipset_init(dev);
+   set_reset_mode(dev);
+   chipset_init(dev);
 
-	return register_candev(dev);
+   return register_candev(dev);
 }
 EXPORT_SYMBOL_GPL(adv_register_sja1000dev);
 
 void adv_unregister_sja1000dev(struct net_device *dev)
 {
-	set_reset_mode(dev);
-	unregister_candev(dev);
+   set_reset_mode(dev);
+   unregister_candev(dev);
 }
 EXPORT_SYMBOL_GPL(adv_unregister_sja1000dev);
 
 static __init int adv_sja1000_init(void)
 {
-	printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
+   printk(KERN_INFO "%s CAN netdevice driver\n", DRV_NAME);
 
-	return 0;
+   return 0;
 }
 
 module_init(adv_sja1000_init);
 
 static __exit void adv_sja1000_exit(void)
 {
-	printk(KERN_INFO "%s: driver removed\n", DRV_NAME);
+   printk(KERN_INFO "%s: driver removed\n", DRV_NAME);
 }
 
 module_exit(adv_sja1000_exit);
