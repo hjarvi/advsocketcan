@@ -38,8 +38,8 @@
 MODULE_AUTHOR(" Wang.guigui ");
 MODULE_DESCRIPTION("SocketCAN driver for Advantech CAN cards");
 MODULE_LICENSE("GPL");
-static char *serial_version = "3.0.0.4";
-static char *serial_revdate = "2022/06/30";
+static char *serial_version = "3.0.1.0";
+static char *serial_revdate = "2023/01/06";
 
 #define CAN_Clock (16000000 / 2) //16000000 : crystal frequency
 
