@@ -576,6 +576,9 @@ static void sja1000_rx_dma(struct net_device *dev)
 		
 		dma_buf =  (u32 *)priv->ddma_buf.kaddr;
 
+   /* release receive buffer,it means clear RX interrupt flag not clear RX FIFO data */ //NOTE!!,HW said This operation should be done before we read RX DMA count and RX FIFO memory,if not so£¬some frames may not received immediately.
+   sja1000_write_cmdreg(priv, CMD_RRB);
+
 		rbuf_wp = ioread32(priv->reg_base + CAN_0_RXDMA_CNT);//CAN_0_RXDMA_CNT 0x228;CAN_0_RXDMA_CNT 0x628,note that offset 0x400 is add to the second priv's Bass address in pci_init_one 
 
 		data_cnt = (rbuf_wp >= priv->rbuf_rp) ? (rbuf_wp - priv->rbuf_rp) : (RX_DMA_BUF_SIZE + rbuf_wp - priv->rbuf_rp);
@@ -666,8 +669,6 @@ static void sja1000_rx_dma(struct net_device *dev)
 			stats->rx_packets++;
 			stats->rx_bytes += cf->can_dlc;
 		}
-		/* release receive buffer */
-		sja1000_write_cmdreg(priv, CMD_RRB);
 	}
 
 static void sja1000_rx_register(struct net_device *dev)
