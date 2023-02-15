@@ -557,7 +557,7 @@ static inline u32 * can_port_dma_frame_prepare(struct sja1000_priv *priv, u32 fr
    return sp;  
 }
 
-static void sja1000_rx(struct net_device *dev)
+static void sja1000_rx_dma(struct net_device *dev)
 {
 	struct sja1000_priv *priv = netdev_priv(dev);
 	u32 *dma_buf = NULL;
@@ -568,9 +568,7 @@ static void sja1000_rx(struct net_device *dev)
 	u32* src = NULL;
 	unsigned frm_dlc = 0;
 	u32 xbuf[CAN_FRAME_MAX_LEN];
-
-	if (priv->dma_spted)//new branch;DMA;copy data from memory
-	{
+   //new branch;DMA;copy data from memory
 		struct net_device_stats *stats = &dev->stats;
 		struct can_frame *cf;
 		struct sk_buff *skb;
@@ -671,8 +669,11 @@ static void sja1000_rx(struct net_device *dev)
 		/* release receive buffer */
 		sja1000_write_cmdreg(priv, CMD_RRB);
 	}
-	else//old branch;read register
+
+static void sja1000_rx_register(struct net_device *dev)
 	{
+   //old branch;read register
+   struct sja1000_priv *priv = netdev_priv(dev);
 		struct net_device_stats *stats = &dev->stats;
 		struct can_frame *cf;
 		struct sk_buff *skb;
@@ -905,7 +906,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 			if (priv->dma_spted){
 				DEBUG_INFO("======Rx INT DMA,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
 
-				sja1000_rx(dev);
+            sja1000_rx_dma(dev);
 				status = priv->read_reg(priv, REG_SR);
 				/* check for absent controller */
 				if (status == 0xFF && sja1000_is_absent(priv))
@@ -917,7 +918,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 
 					DEBUG_INFO("======Rx INT legacy,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
 
-					sja1000_rx(dev);
+               sja1000_rx_register(dev);
 					status = priv->read_reg(priv, REG_SR);
 					/* check for absent controller */
 					if (status == 0xFF && sja1000_is_absent(priv))
