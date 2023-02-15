@@ -73,7 +73,8 @@ static struct pci_device_id advcan_board_table[] = {
    {ADVANTECH_VANDORID, 0xc302, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},
    {ADVANTECH_VANDORID, 0xc304, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},
    {ADVANTECH_VANDORID, 0x00c5, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00c5 is add for the device support DMA
-   {ADVANTECH_VANDORID, 0x00D7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},
+   {ADVANTECH_VANDORID, 0x00D7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00d7 is add for B-version hardware
+   {ADVANTECH_VANDORID, 0x00F7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00f7 is add for B-version hardware legacy irq + No TXFIFO
    {0,}			
 };
 
@@ -178,10 +179,9 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
       || pdev->device == 0xc302
       || pdev->device == 0xc304 
 	  || pdev->device == 0x00c5
-	  || pdev->device == 0x00D7)
-   {
-	   if (pdev->device == 0x00c5 || pdev->device == 0x00D7)
-	   {
+      || pdev->device == 0x00D7
+      || pdev->device == 0x00F7) {
+         if (pdev->device == 0x00c5 || pdev->device == 0x00D7 || pdev->device == 0x00F7) {
 		   portNum = 2;
 	   }
 	   else
@@ -297,10 +297,9 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
 	      ||  pdev->device == 0xc302
 	      ||  pdev->device == 0xc304 
 		  ||  pdev->device == 0x00c5
-		  ||  pdev->device == 0x00D7)//Memory
-	      {   
-			if( request_mem_region(devExt->Base[i] , devExt->addlen[i], "advcan") == NULL ) 
-			{
+         ||  pdev->device == 0x00D7
+         ||  pdev->device == 0x00F7) {//Memory
+            if(request_mem_region(devExt->Base[i] , devExt->addlen[i], "advcan") == NULL ) {
 			    DEBUG_INFO ("memory map error\n");   
 				goto error_out;
 			}
@@ -403,8 +402,8 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
 	      	|| pdev->device == 0xc302
 	      	|| pdev->device == 0xc304 
 			|| pdev->device == 0x00c5
-			|| pdev->device == 0x00D7)
-		{	 
+         || pdev->device == 0x00D7
+         || pdev->device == 0x00F7) {	 
 	    	 	iounmap(devExt->Base_mem[i]);
 		        release_mem_region(devExt->Base[i], devExt->addlen[i]);
 		}
