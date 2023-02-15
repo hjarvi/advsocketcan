@@ -426,15 +426,14 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 	if (id & CAN_EFF_FLAG) //extand trame
 	{
 		fi |= FI_FF;
-
+      //id is 29 bit,to understand this you must know sja1000 document
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, fi);
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x1fe00000) >> (5 + 16));
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x001fe000) >> (5 + 8));
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00001fe0) >> 5);
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x0000001f) << 3);
-	}
-	else//standard
-	{
+   } else {//standard
+      //id is 11 bit,to understand this you must know sja1000 document
 		priv->write_reg(priv, CAN_TX_FIFO_DIN,fi);
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x000007f8) >> 3);
 		priv->write_reg(priv, CAN_TX_FIFO_DIN, (id & 0x00000007) << 5);
@@ -459,7 +458,7 @@ netdev_tx_t transmit_send_msg_tx_fifo(struct sk_buff *skb,struct net_device *dev
 
 	// check whether rest space of FIFO can still hold a packet (CAN max packet size is 13) 
 	uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454 
-	if (uTxFifoSpace >= 26) { 
+   if (uTxFifoSpace >= 26) { //FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
 		netif_wake_queue(dev);
 	} 
 
@@ -547,13 +546,11 @@ static inline u32 * can_port_dma_frame_prepare(struct sja1000_priv *priv, u32 fr
       while (sp < end) {
          *dp++ = *sp++;
       }
-
       sp  = (u32*)priv->ddma_buf.kaddr;
       end = (u32*)priv->ddma_buf.kaddr + priv->rbuf_rp;
       while (sp < end) {
          *dp++ = *sp++;
       }
-
       sp = xbuf;
    } 
 
@@ -892,7 +889,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 				{
 					uTxFifoSpace = CAN_TX_FIFO_SIZE - ioread32(priv->reg_base + CAN_0_TX_FIFO_CNT);//CAN_0_TX_FIFO_CNT 0x254 , CAN_1_TX_FIFO_CNT 0x454
 										
-					if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {
+               if (uTxFifoSpace >= 26 && netif_queue_stopped(dev)) {//FPGA CANNOT provide exact FIFO rest space immediately,so we reserve a little big space.
 						netif_wake_queue(dev);
 					}
 				}
@@ -915,8 +912,7 @@ irqreturn_t adv_sja1000_interrupt(int irq, void *dev_id)
 				{
 					return IRQ_NONE;
 				}
-			}
-			else{
+         } else {//legacy,reading register
 				while (status & SR_RBS) {
 
 					DEBUG_INFO("======Rx INT legacy,priv->serialNo:%d, status:0x%0x\n",priv->serialNo,status);
