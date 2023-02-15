@@ -378,22 +378,23 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
 	for (int i = 0; i < devExt->portNum; i++) 
 	{
 		dev = devExt->net_dev[i];
-		priv = netdev_priv(dev);
-		if (!dev)
-			continue;
+      if (!dev) {
+         continue;
+      }
+      priv = netdev_priv(dev);
+      if (!priv) {
+         continue;
+      }
+      if (priv->dma_spted) {
+#ifdef	CONFIG_PCI_MSI
+         pci_disable_msi(pdev);
+#endif
+      }
 		
 		dev_info(&pdev->dev, "Removing %s.\n", dev->name);
 
 		adv_unregister_sja1000dev(dev);
 		adv_free_sja1000dev(dev);
-
-		priv = netdev_priv(dev);//point to struct sja1000_priv that alloc before
-		if (priv->dma_spted)
-		{
-#ifdef	CONFIG_PCI_MSI
-			pci_disable_msi(pdev);
-		}
-#endif
 
 		if ( pdev->device == 0xc201
 	      	|| pdev->device == 0xc202
