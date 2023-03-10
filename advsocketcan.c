@@ -38,8 +38,8 @@
 MODULE_AUTHOR(" Wang.guigui ");
 MODULE_DESCRIPTION("SocketCAN driver for Advantech CAN cards");
 MODULE_LICENSE("GPL");
-static char *serial_version = "3.0.1.0";
-static char *serial_revdate = "2023/01/06";
+static char *serial_version = "3.0.1.3";
+static char *serial_revdate = "2023/02/22";
 
 #define CAN_Clock (16000000 / 2) //16000000 : crystal frequency
 
@@ -73,8 +73,10 @@ static struct pci_device_id advcan_board_table[] = {
    {ADVANTECH_VANDORID, 0xc302, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},
    {ADVANTECH_VANDORID, 0xc304, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},
    {ADVANTECH_VANDORID, 0x00c5, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00c5 is add for the device support DMA
-   {ADVANTECH_VANDORID, 0x00D7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00d7 is add for B-version hardware
-   {ADVANTECH_VANDORID, 0x00F7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00f7 is add for B-version hardware legacy irq + No TXFIFO
+   {ADVANTECH_VANDORID, 0x00D7, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00d7 is add for B-version hardware 26d2ca (MSI & TX FIFO Disabled)
+   {ADVANTECH_VANDORID, 0x00F6, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00f6 is add for B-version hardware PCIE-1680-BE (MSI & TX FIFO Enabled)
+   {ADVANTECH_VANDORID, 0x00F4, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PCI_ANY_ID},//device id 0x00f4 is add for B-version hardware 26d2ca (Legacy & TX FIFO Disabled)
+
    {0,}			
 };
 
@@ -133,8 +135,9 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
    struct advcan_pci_card *devExt;
    struct sja1000_priv *priv;
    struct net_device *dev;
-   int dma_spted = 0;
-   int txFIFOSpted = 0;
+   u8 dma_spted = 0;
+   u8 txFIFOSpted = 0;
+   u8 msi_enabled = 0;
    unsigned int lenBar2 = 0;
    void __iomem *Bar2VirtualAddr = NULL;
    u32 fpga_ver = 0;
@@ -177,8 +180,9 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
       || pdev->device == 0xc304 
       || pdev->device == 0x00c5
       || pdev->device == 0x00D7
-      || pdev->device == 0x00F7) {
-         if (pdev->device == 0x00c5 || pdev->device == 0x00D7 || pdev->device == 0x00F7) {
+      || pdev->device == 0x00F6
+      || pdev->device == 0x00F4) {
+         if (pdev->device == 0x00c5 || pdev->device == 0x00D7 || pdev->device == 0x00F6 || pdev->device == 0x00F4) {
             portNum = 2;
          }
          else {
@@ -238,12 +242,32 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
       if (fpga_ver >= 0x00020000) {
          txFIFOSpted = 1;
       }
+      if (txFIFOSpted && pdev->device == 0x00C5) {
+         msi_enabled = 1;
+      }
+      //MSI INT & TX FIFO Disabled for 0x00D7
+      if (pdev->device == 0x00D7) {
+         dma_spted = 0;
+         txFIFOSpted =0;
+         msi_enabled = 1;
+      }
+      //MSI INT  & TX FIFO Enabled for 0x00F6
+      if (pdev->device == 0x00F6) {
+         msi_enabled = 1;
+      }
+      //Legacy INT & TX FIFO Disabled for 0x00F4
+      if (pdev->device == 0x00F4) {
+         dma_spted = 0;
+         txFIFOSpted =0;
+         msi_enabled = 0;
+      }
 
       iounmap(Bar2VirtualAddr);
       release_mem_region(fpga_base,lenBar2);
    }
-
-   if (dma_spted) {//MSI must enable only once for each card,otherwise it will cause a kernal crash
+   printk("device id:0x%04X,msi_enabled:%u,TxFIFO_enabled:%u,FPGAVer:0x%0x\n",pdev->device,msi_enabled,txFIFOSpted,fpga_ver);
+   //whether use MSI INT
+   if (msi_enabled) {//MSI must enable only once for each card,otherwise it will cause a kernal crash
 #ifdef CONFIG_PCI_MSI
       pci_enable_msi(pdev);
       pci_set_master(pdev);//for Rx DMA Or MSI interrupt,must enable bus master
@@ -272,6 +296,7 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
       //and dma support,FIFO support
       priv->dma_spted = dma_spted;
       priv->tx_fifo_spted = txFIFOSpted;
+      priv->msi_enabled = msi_enabled;
       //end
       dev->irq = pdev->irq;
 
@@ -283,7 +308,8 @@ static int advcan_pci_init_one(struct pci_dev *pdev,const struct pci_device_id *
          ||  pdev->device == 0xc304 
          ||  pdev->device == 0x00c5
          ||  pdev->device == 0x00D7
-         ||  pdev->device == 0x00F7) {//Memory
+         ||  pdev->device == 0x00F6
+         ||  pdev->device == 0x00F4) {//Memory
             if(request_mem_region(devExt->Base[i] , devExt->addlen[i], "advcan") == NULL ) {
                DEBUG_INFO ("memory map error\n");   
                goto error_out;
@@ -350,6 +376,7 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
    struct net_device *dev;
    struct advcan_pci_card *devExt = pci_get_drvdata(pdev);
    struct sja1000_priv *priv = NULL;
+   bool disableOnce = true;
 
    for (int i = 0; i < devExt->portNum; i++) {
       dev = devExt->net_dev[i];
@@ -360,9 +387,10 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
       if (!priv) {
          continue;
       }
-      if (priv->dma_spted) {
+      if (priv->msi_enabled && disableOnce) {
 #ifdef	CONFIG_PCI_MSI
          pci_disable_msi(pdev);
+         disableOnce = false;
 #endif
       }
 
@@ -379,7 +407,8 @@ static void advcan_pci_remove_one(struct pci_dev *pdev)
          || pdev->device == 0xc304 
          || pdev->device == 0x00c5
          || pdev->device == 0x00D7
-         || pdev->device == 0x00F7) {	 
+         || pdev->device == 0x00F6
+         || pdev->device == 0x00F4) {	 
             iounmap(devExt->Base_mem[i]);
             release_mem_region(devExt->Base[i], devExt->addlen[i]);
       }

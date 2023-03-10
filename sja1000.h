@@ -231,6 +231,7 @@ struct sja1000_priv {
 	u8 dma_spted;
 	u64 bar0_base;
 	u8 tx_fifo_spted;
+   u8 msi_enabled;
 	daq_dma_mem_t    ddma_buf;
 	sgl_entry_t      *sgl_entry;
 	u32 rbuf_rp;
